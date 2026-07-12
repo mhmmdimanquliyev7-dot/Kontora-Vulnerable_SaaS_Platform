@@ -2,7 +2,7 @@ name: kontora
 
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-kontora}
@@ -47,6 +47,10 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-kontora}:${POSTGRES_PASSWORD:-kontora_dev_password}@postgres:5432/${POSTGRES_DB:-kontora}?schema=public
       REDIS_URL: redis://redis:6379
       CORS_ORIGIN: http://localhost:3000
+      JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -hex 32)}"
+      ACCESS_TOKEN_TTL_MINUTES: 15
+      REFRESH_TOKEN_TTL_DAYS: 30
+      LOGIN_TOKEN_TTL_MINUTES: 5
     ports:
       - "${API_PORT:-4000}:4000"
     healthcheck:
@@ -60,6 +64,32 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  # Runs Prisma CLI commands (migrate, db seed, studio) against the "postgres"
+  # service over the Docker network, e.g.:
+  #   docker compose run --rm migrate migrate dev --name <name>
+  #   docker compose run --rm migrate db seed
+  # On some machines a locally-installed Postgres, VPN, or security software
+  # intercepts host-mapped connections to the Postgres port, causing `prisma
+  # migrate`/`db seed` run directly on the host to fail with a password/auth
+  # error even though the credentials are correct (see README). Running the
+  # Prisma CLI here, inside Docker's network, sidesteps that entirely.
+  migrate:
+    image: node:25-slim
+    working_dir: /workspace/db
+    volumes:
+      - ./:/workspace
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kontora}:${POSTGRES_PASSWORD:-kontora_dev_password}@postgres:5432/${POSTGRES_DB:-kontora}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["tools"]
+    entrypoint: ["npx", "prisma"]
+    # Only bound when invoked with `docker compose run --service-ports`, e.g.
+    # for `prisma studio`; a no-op for plain `migrate`/`db seed` runs.
+    ports:
+      - "5555:5555"
 
   frontend:
     build:

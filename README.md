@@ -3,7 +3,8 @@
 Kontora is a B2B SaaS invoicing and client-management platform. This repo is a
 portfolio project built to production-quality standards.
 
-This is chapter 1: a clean, working skeleton with no product features yet.
+Built in chapters: chapter 1 was the clean project skeleton; chapter 2 (this
+one) adds the data model and authentication.
 
 ## Stack
 
@@ -40,8 +41,10 @@ docker compose up --build
 
 - Frontend: http://localhost:3000
 - API health check: http://localhost:4000/api/health
-- Postgres: localhost:5432
+- Postgres: localhost:5433 (see `.env.example` for why not 5432)
 - Redis: localhost:6379
+
+Then apply migrations and load seed data (see [Seed data](#seed-data) below).
 
 ### Option B — Run services locally
 
@@ -52,17 +55,26 @@ npm install
 cp api/.env.example api/.env
 cp db/.env.example db/.env
 cp frontend/.env.example frontend/.env
+# set a real JWT_SECRET in api/.env — openssl rand -hex 32
 
 # start just the datastores in Docker
 docker compose up postgres redis
 
-# generate the Prisma client
+# generate the Prisma client, apply migrations, seed
 npm run db:generate
+npm run db:migrate:docker
+npm run db:seed:docker
 
 # run the API and frontend in separate terminals
 npm run dev:api
 npm run dev:frontend
 ```
+
+If `npm run dev:api` can't reach Postgres from the host, see
+[Troubleshooting](#troubleshooting) — the API itself runs on plain HTTP so
+it's unaffected, but its _connection to Postgres_ hits the same host→Postgres
+issue as the CLI. On a machine where that's the case, run the API in Docker
+too (`docker compose up api`) instead of `npm run dev:api`.
 
 ## Scripts (root)
 
@@ -75,7 +87,12 @@ npm run dev:frontend
 | `npm run format`       | Format the whole repo with Prettier |
 | `npm run db:generate`  | Generate the Prisma client          |
 | `npm run db:migrate`   | Run Prisma migrations in dev mode   |
+| `npm run db:seed`      | Seed the database (see below)       |
 | `npm run db:studio`    | Open Prisma Studio                  |
+
+Each also has a `:docker` variant (`db:migrate:docker`, `db:seed:docker`,
+`db:studio:docker`) that runs the same command inside Docker's network
+instead of from the host — see [Troubleshooting](#troubleshooting).
 
 ## Health check
 
@@ -91,8 +108,139 @@ Redis:
 }
 ```
 
+## Data model
+
+Multi-tenant: every row that belongs to a business lives under a `Company`
+(the tenant). A `User` is a global identity with no company or role of its
+own — permissions are granted per company via `TeamMembership`, so the same
+person can be `OWNER` of one company and `MEMBER` of another without either
+role leaking into the other tenant. This is deliberate: putting role on
+`User` directly is a common multi-tenant design mistake.
+
+```
+Company ─┬─ TeamMembership ─── User
+          ├─ Client ─── Invoice ─── InvoiceItem
+          ├─ Invoice
+          ├─ Expense
+          └─ Session
+```
+
+- **TeamMembership.role**: `OWNER | ACCOUNTANT | MEMBER | CLIENT_GUEST`,
+  scoped to a single `(userId, companyId)` pair.
+- **CLIENT_GUEST**: a portal login for the company's own customer. Its
+  membership carries `clientId`, restricting it to that one `Client`'s
+  invoices — enforced in the service layer (`invoice.service.ts`), not just
+  by hiding UI.
+- **Session**: one row per refresh token = one logged-in session, scoped to
+  a specific company context. Access tokens are short-lived JWTs derived
+  from a session and never stored server-side.
+
+## Authentication
+
+Email/password with JWT access tokens + opaque, rotating refresh tokens,
+both delivered as `httpOnly` cookies (never exposed to JS, so an XSS bug
+can't steal them directly):
+
+- `kontora_at` — access token (JWT, 15 min default, path `/`)
+- `kontora_rt` — refresh token (opaque random value, 30 days default, path
+  `/api/auth` only)
+
+Passwords are hashed with bcrypt (via `bcryptjs`, 12 rounds). Login runs
+`bcrypt.compare` against a dummy hash even for an unknown email, so response
+timing can't be used to enumerate registered addresses.
+
+Refresh tokens are stored server-side only as a SHA-256 hash (`Session.refreshTokenHash`) — a database leak can't be used to forge sessions. Each refresh
+**rotates** the token (old one revoked, new one issued); presenting an
+already-rotated token is treated as a signal of leakage and revokes every
+session for that user, not just the one being reused.
+
+A user can belong to more than one company. If login resolves to exactly
+one membership, it signs in directly; with more than one, it returns a
+short-lived `loginToken` and the list of companies instead of a session —
+the client calls `POST /api/auth/select-company` to finish signing in.
+`POST /api/auth/switch-company` moves an already-authenticated session to a
+different company the user belongs to.
+
+### Endpoints
+
+| Method | Path                       | Auth           | Notes                                                         |
+| ------ | -------------------------- | -------------- | ------------------------------------------------------------- |
+| POST   | `/api/auth/register`       | —              | Creates a new Company + OWNER                                 |
+| POST   | `/api/auth/login`          | —              | May return `company_selection_required`                       |
+| POST   | `/api/auth/select-company` | loginToken     | Completes login for multi-company users                       |
+| POST   | `/api/auth/refresh`        | refresh cookie | Rotates tokens                                                |
+| POST   | `/api/auth/logout`         | refresh cookie | Revokes the current session                                   |
+| POST   | `/api/auth/logout-all`     | session        | Revokes every session for the user                            |
+| POST   | `/api/auth/switch-company` | session        | Moves session to another membership                           |
+| GET    | `/api/auth/me`             | session        | Current user, company, role, all memberships                  |
+| GET    | `/api/clients`             | session        | OWNER/ACCOUNTANT/MEMBER                                       |
+| GET    | `/api/invoices`            | session        | All roles; CLIENT_GUEST sees only their own client's invoices |
+| GET    | `/api/expenses`            | session        | OWNER/ACCOUNTANT only                                         |
+| GET    | `/api/team`                | session        | OWNER/ACCOUNTANT only                                         |
+
+`/api/auth/login` and `/api/auth/register` are rate-limited (Redis-backed,
+shared across replicas) to slow down credential stuffing / brute force.
+
+### Tenant isolation
+
+`requireAuth` verifies the access token and attaches `req.auth = { userId,
+companyId, role, sessionId }`. `companyId` comes only from the signed
+token — never from a request param, body, or query string — so every
+service function filters its Prisma query by `req.auth.companyId` and a
+client has no field to edit to address another tenant's data. `requireRole`
+checks `req.auth.role` against an allowlist per route.
+
+### Seed data
+
+```bash
+docker compose up -d postgres redis
+npm run db:migrate:docker   # or npm run db:migrate if host->Postgres works for you
+npm run db:seed:docker      # or npm run db:seed
+```
+
+Two companies, all passwords `Password123!` (dev-only — never reuse):
+
+| Company         | Role         | Email                  |
+| --------------- | ------------ | ---------------------- |
+| Acme Consulting | OWNER        | owner@acme.test        |
+| Acme Consulting | ACCOUNTANT   | accountant@acme.test   |
+| Acme Consulting | MEMBER       | member@acme.test       |
+| Acme Consulting | MEMBER       | member2@acme.test      |
+| Acme Consulting | CLIENT_GUEST | client@acme.test       |
+| Nimbus Retail   | OWNER        | owner@nimbus.test      |
+| Nimbus Retail   | ACCOUNTANT   | accountant@nimbus.test |
+| Nimbus Retail   | MEMBER       | member@nimbus.test     |
+| Nimbus Retail   | CLIENT_GUEST | client@nimbus.test     |
+
+Each company also gets 3 clients, 6 invoices (mixed statuses), and 4
+expenses. Re-running the seed wipes and recreates everything.
+
+## Troubleshooting
+
+**`prisma migrate`/`db seed` fail with a password/auth error on this
+machine, even though the credentials are correct.** On some setups, direct
+host → Docker-published-port connections to Postgres are silently
+intercepted before reaching the container (confirmed here via `docker exec`
+working while an identical host connection didn't, on multiple ports and
+Postgres images — likely local security software or a conflicting local
+Postgres install). Redis and the API's own HTTP port are unaffected; it's
+specific to Postgres connections initiated from the host.
+
+Workaround: run Prisma CLI commands from _inside_ Docker's network instead
+of from the host:
+
+```bash
+npm run db:migrate:docker    # docker compose run --rm migrate migrate dev
+npm run db:seed:docker       # docker compose run --rm migrate db seed
+npm run db:studio:docker     # docker compose run --rm --service-ports migrate studio -p 5555 -b 0.0.0.0
+```
+
+If `db:migrate`/`db:seed` (without `:docker`) work fine for you, ignore
+this — it's a local-machine networking quirk, not a project issue.
+
 ## Status
 
-No product features yet — this chapter is scaffold only. Domain models,
-auth, and the actual invoicing/client-management functionality land in
-later chapters.
+Data model + authentication are in place (this chapter). No invoicing/client
+CRUD UI yet — the current API only exposes read-only, tenant-scoped list
+endpoints to demonstrate the access-control layer. Frontend auth screens and
+full CRUD land in later chapters.

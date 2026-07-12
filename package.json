@@ -17,7 +17,11 @@
     "format:check": "prettier --check .",
     "db:generate": "npm run generate --workspace=db",
     "db:migrate": "npm run migrate:dev --workspace=db",
-    "db:studio": "npm run studio --workspace=db"
+    "db:seed": "npm run seed --workspace=db",
+    "db:studio": "npm run studio --workspace=db",
+    "db:migrate:docker": "docker compose run --rm migrate migrate dev",
+    "db:seed:docker": "docker compose run --rm migrate db seed",
+    "db:studio:docker": "docker compose run --rm --service-ports migrate studio -p 5555 -b 0.0.0.0"
   },
   "devDependencies": {
     "prettier": "3.9.5"

@@ -7,6 +7,16 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
+
+  JWT_SECRET: z
+    .string()
+    .min(
+      32,
+      "JWT_SECRET must be at least 32 characters — generate one with `openssl rand -hex 32`",
+    ),
+  ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(15),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  LOGIN_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(5),
 });
 
 const parsed = envSchema.safeParse(process.env);
