@@ -1,0 +1,28 @@
+{
+  "name": "kontora",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kontora — B2B SaaS invoicing & client-management platform (monorepo)",
+  "workspaces": [
+    "frontend",
+    "api",
+    "db"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=api",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspace=db && npm run build --workspace=api && npm run build --workspace=frontend",
+    "lint": "npm run lint --workspace=api && npm run lint --workspace=db && npm run lint --workspace=frontend",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "npm run generate --workspace=db",
+    "db:migrate": "npm run migrate:dev --workspace=db",
+    "db:studio": "npm run studio --workspace=db"
+  },
+  "devDependencies": {
+    "prettier": "3.9.5"
+  },
+  "engines": {
+    "node": ">=25"
+  }
+}

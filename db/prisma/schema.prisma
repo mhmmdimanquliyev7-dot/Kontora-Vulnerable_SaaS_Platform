@@ -1,0 +1,12 @@
+// Kontora — Prisma schema
+// No models yet: this is the skeleton phase. Domain models (Organization,
+// User, Client, Invoice, ...) are added in a later chapter.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
