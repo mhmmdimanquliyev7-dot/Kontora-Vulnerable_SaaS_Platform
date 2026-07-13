@@ -4,19 +4,20 @@ Kontora is a B2B SaaS invoicing and client-management platform. This repo is a
 portfolio project built to production-quality standards.
 
 Built in chapters: chapter 1 was the clean project skeleton, chapter 2 added
-the data model and authentication, and chapter 3 (this one) adds the core
-API — clients, invoices, expenses, team management, dashboard, company
-settings, and an activity log.
+the data model and authentication, chapter 3 added the core API (clients,
+invoices, expenses, team management, dashboard, company settings, activity
+log), and chapter 4 (this one) adds the frontend — a full Next.js dashboard
+UI wired to all of it.
 
 ## Stack
 
-| Layer    | Tech                                                                    |
-| -------- | ----------------------------------------------------------------------- |
-| Frontend | Next.js (App Router), React, TypeScript, Tailwind CSS                   |
-| API      | Node.js, Express, TypeScript (routes → controllers → services → models) |
-| Database | PostgreSQL, Prisma ORM                                                  |
-| Cache    | Redis                                                                   |
-| Infra    | Docker Compose                                                          |
+| Layer    | Tech                                                                                                              |
+| -------- | ----------------------------------------------------------------------------------------------------------------- |
+| Frontend | Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query, react-hook-form + zod, Recharts |
+| API      | Node.js, Express, TypeScript (routes → controllers → services → models)                                           |
+| Database | PostgreSQL, Prisma ORM                                                                                            |
+| Cache    | Redis                                                                                                             |
+| Infra    | Docker Compose                                                                                                    |
 
 ## Monorepo layout
 
@@ -46,7 +47,9 @@ docker compose up --build
 - Postgres: localhost:5433 (see `.env.example` for why not 5432)
 - Redis: localhost:6379
 
-Then apply migrations and load seed data (see [Seed data](#seed-data) below).
+Then apply migrations and load seed data (see [Seed data](#seed-data)
+below), and log in at http://localhost:3000 with any of the seeded
+accounts (e.g. `owner@acme.test` / `Password123!`).
 
 ### Option B — Run services locally
 
@@ -326,6 +329,51 @@ Two companies, all passwords `Password123!` (dev-only — never reuse):
 Each company also gets 3 clients, 6 invoices (mixed statuses), and 4
 expenses. Re-running the seed wipes and recreates everything.
 
+## Frontend
+
+Next.js App Router, entirely client-rendered behind the `(app)` route
+group (no server-side data fetching) — the browser holds the `httpOnly`
+session cookies and talks to the API directly at `NEXT_PUBLIC_API_URL`;
+the Next.js server only serves the app shell. shadcn/ui (Radix primitives)
+
+- Tailwind for components, TanStack Query for all server state (caching,
+  mutations, cache invalidation on write), react-hook-form + zod for every
+  form, Recharts (via shadcn's chart wrapper) for the dashboard.
+
+**Auth handling**, since the access/refresh tokens are `httpOnly` and
+never touch frontend JS directly:
+
+- `src/proxy.ts` (Next's proxy/middleware convention) does a cheap,
+  presence-only cookie check on every navigation to redirect
+  never-logged-in or logged-out users to `/login` without a network
+  round-trip. It's deliberately "thin" — it can't verify the token is
+  valid, only that a session cookie exists.
+- `src/lib/api/client.ts`'s `apiFetch` wrapper is the actual authority:
+  every request goes through it, and a `401` triggers exactly one
+  `POST /api/auth/refresh` (shared across concurrent requests) before
+  retrying the original call. Only if that also fails does it redirect to
+  `/login`.
+- The access token cookie's browser-side `maxAge` intentionally matches
+  the refresh token's lifetime, not the JWT's own 15-minute expiry (see
+  `setAccessTokenCookie` in the API) — so the cookie stays _present_ long
+  enough for `src/proxy.ts`'s presence check to still let the page
+  through, while the JWT inside it is still cryptographically rejected by
+  the API the moment it's actually expired, and `apiFetch`'s refresh flow
+  silently repairs it. Verified end-to-end (login → force-expire the
+  access token in place → navigate → refresh fires → original request
+  retried → new tokens issued → no visible interruption).
+- Login handles both API outcomes: a single-company user is signed in
+  directly, a multi-company user sees a workspace picker
+  (`company_selection_required`) before `POST /api/auth/select-company`
+  completes the session.
+
+**Role-based UI**: the sidebar (`src/components/layout/nav-items.ts`)
+only renders links a role can actually use, matching the API's own
+per-route role checks — but that's UX, not the security boundary; every
+list/detail page also handles a `403`/`404` from the API gracefully (an
+inline message, not a crash) for the case where a role navigates to a
+route directly.
+
 ## Troubleshooting
 
 **`prisma migrate`/`db seed` fail with a password/auth error on this
@@ -351,9 +399,10 @@ this — it's a local-machine networking quirk, not a project issue.
 
 ## Status
 
-Data model, authentication, and the core API (clients, invoices, expenses,
-team, dashboard, company settings, activity log) are in place — all
-tenant-scoped, role-checked, and zod-validated. No frontend UI yet; every
-endpoint above has only been exercised via the API directly. That, plus a
-real password-reset flow (see the Team section's note on invited users),
-is the natural next chapter.
+Data model, authentication, the core API, and the frontend dashboard UI
+are all in place. What's not: a real password-reset flow (see the Team
+section's note on invited users), and — since this project's real purpose
+is security research — the deliberately-vulnerable chapters mapped to
+OWASP/PortSwigger categories haven't started yet. Everything up to this
+point is meant to be the clean, correct baseline those later chapters
+intentionally break.

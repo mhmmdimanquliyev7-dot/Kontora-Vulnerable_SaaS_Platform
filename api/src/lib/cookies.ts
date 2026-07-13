@@ -19,7 +19,19 @@ export function setAccessTokenCookie(res: Response, token: string): void {
   res.cookie(ACCESS_TOKEN_COOKIE, token, {
     ...baseCookieOptions(),
     path: "/",
-    maxAge: env.ACCESS_TOKEN_TTL_MINUTES * 60 * 1000,
+    // NOT env.ACCESS_TOKEN_TTL_MINUTES. The JWT itself still expires (and is
+    // rejected by verifyAccessToken) after ACCESS_TOKEN_TTL_MINUTES — that's
+    // the actual security boundary and is enforced server-side regardless of
+    // this cookie's lifetime. This maxAge only controls how long the browser
+    // keeps the (by-then-expired) cookie around, matching the refresh
+    // token's lifetime instead so a frontend that does a cheap
+    // cookie-presence check (e.g. Next.js proxy/middleware, which can't see
+    // the path-scoped refresh cookie on arbitrary routes — see
+    // setRefreshTokenCookie) can still tell "this browser has a session
+    // worth trying to refresh" apart from "never logged in / logged out",
+    // without the cookie vanishing the moment the access token itself
+    // expires.
+    maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
   });
 }
 
