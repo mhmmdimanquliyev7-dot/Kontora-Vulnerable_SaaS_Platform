@@ -295,3 +295,16 @@ export async function deleteInvoice(companyId: string, actorUserId: string, invo
     metadata: { number: existing.number },
   });
 }
+
+// companyId is applied to the WHERE clause, not checked after the fact — an
+// id belonging to another tenant simply doesn't come back, rather than
+// being fetched and then filtered out. If the returned count is short, the
+// caller asked for at least one id that either doesn't exist or isn't
+// theirs; exportInvoices() below treats that as a 404 rather than silently
+// exporting a partial set.
+export async function listInvoicesByIds(companyId: string, invoiceIds: string[]) {
+  return prisma.invoice.findMany({
+    where: { companyId, id: { in: invoiceIds } },
+    include: { client: true, items: { orderBy: { position: "asc" } } },
+  });
+}

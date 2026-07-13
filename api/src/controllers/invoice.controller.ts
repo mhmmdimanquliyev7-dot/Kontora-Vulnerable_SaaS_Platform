@@ -1,10 +1,11 @@
 import type { Request, Response } from "express";
 
-import { ValidationError } from "@/lib/errors.js";
+import { NotFoundError, ValidationError } from "@/lib/errors.js";
 import { requireParam } from "@/lib/params.js";
 import { streamInvoicePdf } from "@/lib/pdf.js";
 import { prisma } from "@/lib/prisma.js";
 import * as invoiceService from "@/services/invoice.service.js";
+import { exportInvoices as exportInvoicesUpstream } from "@/services/exportWorker.client.js";
 import type { InvoiceStatus } from "@kontora/db";
 import { listInvoicesQuerySchema } from "@/validation/invoice.schemas.js";
 
@@ -71,4 +72,23 @@ export async function pdf(req: Request, res: Response): Promise<void> {
   const invoice = await invoiceService.getInvoice(viewerOf(req), requireParam(req, "id"));
   const company = await prisma.company.findUniqueOrThrow({ where: { id: req.auth!.companyId } });
   streamInvoicePdf(res, { invoice, items: invoice.items, client: invoice.client, company });
+}
+
+// Bulk export (export-worker, Java) — a distinct, heavier batch companion
+// to the single-invoice PDF above (pdfkit, in-process): multiple invoices
+// at once, plus an XML format for accounting-system interop.
+export async function exportInvoices(req: Request, res: Response): Promise<void> {
+  const { invoiceIds, format } = req.body as { invoiceIds: string[]; format: "xml" | "pdf" };
+
+  const invoices = await invoiceService.listInvoicesByIds(req.auth!.companyId, invoiceIds);
+  if (invoices.length !== invoiceIds.length) {
+    throw new NotFoundError("One or more invoices were not found.");
+  }
+
+  const company = await prisma.company.findUniqueOrThrow({ where: { id: req.auth!.companyId } });
+  const result = await exportInvoicesUpstream(company, invoices, format);
+
+  res.setHeader("Content-Type", result.contentType);
+  res.setHeader("Content-Disposition", `inline; filename="invoices.${format}"`);
+  res.status(200).send(result.buffer);
 }

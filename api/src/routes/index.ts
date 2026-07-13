@@ -9,6 +9,7 @@ import { dashboardRouter } from "@/routes/dashboard.routes.js";
 import { expenseRouter } from "@/routes/expense.routes.js";
 import { healthRouter } from "@/routes/health.routes.js";
 import { invoiceRouter } from "@/routes/invoice.routes.js";
+import { reportRouter } from "@/routes/report.routes.js";
 import { teamRouter } from "@/routes/team.routes.js";
 
 export const apiRouter = Router();
@@ -23,3 +24,4 @@ apiRouter.use("/team", requireAuth, teamRouter);
 apiRouter.use("/dashboard", requireAuth, dashboardRouter);
 apiRouter.use("/company", requireAuth, companyRouter);
 apiRouter.use("/activity", requireAuth, activityRouter);
+apiRouter.use("/reports", requireAuth, reportRouter);

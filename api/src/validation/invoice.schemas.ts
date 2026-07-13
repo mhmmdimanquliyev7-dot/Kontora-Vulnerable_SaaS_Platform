@@ -42,3 +42,8 @@ export const listInvoicesQuerySchema = z.object({
   status: invoiceStatusSchema.optional(),
   clientId: z.uuid().optional(),
 });
+
+export const exportInvoicesSchema = z.object({
+  invoiceIds: z.array(z.uuid()).min(1, "Select at least one invoice").max(200),
+  format: z.enum(["xml", "pdf"]),
+});

@@ -17,6 +17,19 @@ const envSchema = z.object({
   ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(15),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   LOGIN_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(5),
+
+  MONGODB_URL: z.string().min(1, "MONGODB_URL is required"),
+
+  // Internal-only satellite services (report-service, export-worker) — never
+  // published to the host, reachable only over the Docker network — plus
+  // the shared secret every call to them must carry. Network isolation is
+  // one layer; this header is the other, in case a service ever gets
+  // exposed by a compose misconfiguration.
+  REPORT_SERVICE_URL: z.string().min(1, "REPORT_SERVICE_URL is required"),
+  EXPORT_WORKER_URL: z.string().min(1, "EXPORT_WORKER_URL is required"),
+  INTERNAL_API_KEY: z
+    .string()
+    .min(32, "INTERNAL_API_KEY must be at least 32 characters — generate one with `openssl rand -hex 32`"),
 });
 
 const parsed = envSchema.safeParse(process.env);

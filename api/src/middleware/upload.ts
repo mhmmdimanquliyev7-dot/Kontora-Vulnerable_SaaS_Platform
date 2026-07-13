@@ -21,3 +21,25 @@ export const uploadLogo = multer({
     cb(null, true);
   },
 }).single("logo");
+
+const CSV_MIME_TYPES = new Set(["text/csv", "application/vnd.ms-excel", "application/csv", "text/plain"]);
+const MAX_CSV_SIZE_BYTES = 5 * 1024 * 1024;
+
+// Same memoryStorage rationale as uploadLogo: the buffer is forwarded
+// straight to report-service over the internal network and never written to
+// this container's disk. CSV mimetypes are notoriously inconsistent across
+// browsers/OSes (Excel-exported CSVs often show up as
+// application/vnd.ms-excel), so this is a permissive first-pass filter —
+// report-service's own parser is the actual validation, same layered
+// approach as the image re-encode step for logo uploads.
+export const uploadCsv = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_CSV_SIZE_BYTES, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (!CSV_MIME_TYPES.has(file.mimetype) && !file.originalname.toLowerCase().endsWith(".csv")) {
+      cb(new ValidationError("Only CSV files are accepted."));
+      return;
+    }
+    cb(null, true);
+  },
+}).single("file");

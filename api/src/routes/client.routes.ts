@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import * as clientController from "@/controllers/client.controller.js";
 import { requireRole } from "@/middleware/requireRole.js";
+import { uploadCsv } from "@/middleware/upload.js";
 import { validateBody } from "@/middleware/validate.js";
 import { Role } from "@kontora/db";
 import { createClientSchema, updateClientSchema } from "@/validation/client.schemas.js";
@@ -15,6 +16,9 @@ const canManage = requireRole(Role.OWNER, Role.ACCOUNTANT, Role.MEMBER);
 // Deleting a client is more consequential than creating/editing one — keep
 // it to the two financially-accountable roles.
 const canDelete = requireRole(Role.OWNER, Role.ACCOUNTANT);
+
+// Must be registered before "/:id" or "import" would be parsed as an id.
+clientRouter.post("/import", canManage, uploadCsv, clientController.importCsv);
 
 clientRouter.get("/", canManage, clientController.list);
 clientRouter.get("/:id", canManage, clientController.getOne);

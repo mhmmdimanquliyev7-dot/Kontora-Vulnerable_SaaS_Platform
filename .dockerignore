@@ -3,6 +3,7 @@
 **/.next
 **/generated
 **/coverage
+**/target
 api/uploads
 **/.env
 **/.env.*

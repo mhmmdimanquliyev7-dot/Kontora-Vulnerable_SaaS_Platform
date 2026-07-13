@@ -129,9 +129,28 @@ async function resetDatabase(): Promise<void> {
   await prisma.company.deleteMany();
 }
 
+// db/init/01-report-service-role.sh creates the report_readonly role and
+// grants it SELECT on these tables, but that script only ever runs once, at
+// Postgres's very first boot — before `prisma migrate` has created any
+// tables. Re-asserting the grants here, after migrations, is what actually
+// makes them stick; every seed run keeps a fresh volume self-healing rather
+// than relying on init-script ordering.
+async function grantReportServiceReadAccess(): Promise<void> {
+  await prisma.$executeRawUnsafe(`
+    DO $grant$
+    BEGIN
+      IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'report_readonly') THEN
+        GRANT SELECT ON companies, clients, invoices, invoice_items, expenses TO report_readonly;
+      END IF;
+    END
+    $grant$;
+  `);
+}
+
 async function main(): Promise<void> {
   console.log("Resetting database...");
   await resetDatabase();
+  await grantReportServiceReadAccess();
 
   const passwordHash = await hashPassword(SEED_PASSWORD);
 

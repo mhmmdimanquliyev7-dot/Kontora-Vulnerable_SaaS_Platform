@@ -8,10 +8,15 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-kontora}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kontora_dev_password}
       POSTGRES_DB: ${POSTGRES_DB:-kontora}
+      # Only read by db/init/01-report-service-role.sh, and only on a brand
+      # new volume (see that script's own comment for the on-an-existing-
+      # volume manual-apply path).
+      REPORT_SERVICE_DB_PASSWORD: ${REPORT_SERVICE_DB_PASSWORD:-report_service_dev_password}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kontora} -d ${POSTGRES_DB:-kontora}"]
       interval: 5s
@@ -31,6 +36,81 @@ services:
       timeout: 5s
       retries: 10
 
+  # Backs exactly one feature (invoice comments — see
+  # api/src/models/invoiceComment.model.ts). Postgres remains the system of
+  # record for everything else; this isn't a second copy of the same data.
+  # Root credentials are used directly by the API here (unlike Postgres,
+  # which gets a dedicated least-privilege role for report-service) because
+  # the only caller is the API itself — the same trust level it already has
+  # over the whole Postgres database via its own Prisma user.
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-kontora}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-kontora_dev_password}
+      MONGO_INITDB_DATABASE: kontora
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval 'db.adminCommand(\"ping\")'",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # A plausible "legacy" internal reporting/import tool (PHP) that the main
+  # API calls over the Docker network — see services/report-service/. Reads
+  # Postgres directly (via the report_readonly role, SELECT-only, provisioned
+  # by db/init/01-report-service-role.sh) for its revenue-summary report;
+  # CSV import is parse-only here, the API does the actual writing. Never
+  # published outside this compose network in a real deployment — the host
+  # port below is dev/debugging convenience only, same as Postgres/Redis.
+  report-service:
+    build:
+      context: .
+      dockerfile: services/report-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://report_readonly:${REPORT_SERVICE_DB_PASSWORD:-report_service_dev_password}@postgres:5432/${POSTGRES_DB:-kontora}
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in .env (openssl rand -hex 32)}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${REPORT_SERVICE_PORT:-8090}:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # A Java/Spring Boot service that turns invoice data the API sends it into
+  # bulk XML/PDF exports — see services/export-worker/. Stateless (no DB
+  # credentials at all); the API is the sole source of the data it renders.
+  # Same "internal only in a real deployment" note as report-service above.
+  export-worker:
+    build:
+      context: .
+      dockerfile: services/export-worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in .env (openssl rand -hex 32)}"
+    mem_limit: 384m
+    ports:
+      - "${EXPORT_WORKER_PORT:-8091}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
   api:
     build:
       context: .
@@ -40,6 +120,12 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      report-service:
+        condition: service_healthy
+      export-worker:
         condition: service_healthy
     environment:
       NODE_ENV: development
@@ -51,6 +137,10 @@ services:
       ACCESS_TOKEN_TTL_MINUTES: 15
       REFRESH_TOKEN_TTL_DAYS: 30
       LOGIN_TOKEN_TTL_MINUTES: 5
+      MONGODB_URL: mongodb://${MONGO_USER:-kontora}:${MONGO_PASSWORD:-kontora_dev_password}@mongo:27017/kontora?authSource=admin
+      REPORT_SERVICE_URL: http://report-service:80
+      EXPORT_WORKER_URL: http://export-worker:8080
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in .env (openssl rand -hex 32)}"
     volumes:
       - api_uploads:/workspace/api/uploads
     ports:
@@ -111,4 +201,5 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  mongo_data:
   api_uploads:

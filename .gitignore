@@ -11,6 +11,7 @@ dist/
 build/
 .next/
 out/
+services/export-worker/target/
 
 # Prisma generated client
 db/src/generated/

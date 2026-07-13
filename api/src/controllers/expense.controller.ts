@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { ValidationError } from "@/lib/errors.js";
 import { requireParam } from "@/lib/params.js";
 import * as expenseService from "@/services/expense.service.js";
+import { importExpensesCsv } from "@/services/reportService.client.js";
 import { listExpensesQuerySchema } from "@/validation/expense.schemas.js";
 
 export async function list(req: Request, res: Response): Promise<void> {
@@ -53,4 +54,38 @@ export async function remove(req: Request, res: Response): Promise<void> {
     requireParam(req, "id"),
   );
   res.status(204).send();
+}
+
+// See client.controller.ts's importCsv for the parse-in-report-service,
+// write-through-the-normal-service split — same pattern here.
+export async function importCsv(req: Request, res: Response): Promise<void> {
+  if (!req.file) {
+    throw new ValidationError("A CSV file upload (field \"file\") is required.");
+  }
+
+  const parsed = await importExpensesCsv(req.file);
+
+  const created: unknown[] = [];
+  const failed: { row: unknown; message: string }[] = [];
+  for (const row of parsed.valid) {
+    try {
+      created.push(
+        await expenseService.createExpense(req.auth!.companyId, req.auth!.userId, {
+          category: row.category,
+          description: row.description,
+          amount: row.amount,
+          currency: "USD",
+          date: new Date(row.date),
+        }),
+      );
+    } catch (err) {
+      failed.push({ row, message: err instanceof Error ? err.message : "Unknown error" });
+    }
+  }
+
+  res.status(200).json({
+    createdCount: created.length,
+    parseErrors: parsed.errors,
+    createErrors: failed,
+  });
 }
