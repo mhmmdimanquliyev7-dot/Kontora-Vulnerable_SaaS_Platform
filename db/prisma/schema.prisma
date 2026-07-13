@@ -37,14 +37,18 @@ model Company {
   id        String   @id @default(uuid())
   name      String
   slug      String   @unique
+  website   String?
+  address   String?
+  logoUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships TeamMembership[]
-  clients     Client[]
-  invoices    Invoice[]
-  expenses    Expense[]
-  sessions    Session[]
+  memberships  TeamMembership[]
+  clients      Client[]
+  invoices     Invoice[]
+  expenses     Expense[]
+  sessions     Session[]
+  activityLogs ActivityLog[]
 
   @@map("companies")
 }
@@ -63,6 +67,7 @@ model User {
   sessions        Session[]
   createdInvoices Invoice[]        @relation("InvoiceCreatedBy")
   createdExpenses Expense[]        @relation("ExpenseCreatedBy")
+  activityLogs    ActivityLog[]
 
   @@map("users")
 }
@@ -127,9 +132,11 @@ model Invoice {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  company   Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  createdBy User?         @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // Restrict, not Cascade: a client record is disposable, invoice/revenue
+  // history is not — deleting a client must not silently delete invoices.
+  client    Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  createdBy User?  @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   items     InvoiceItem[]
 
   @@unique([companyId, number])
@@ -193,4 +200,24 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+// Append-only audit trail of tenant-scoped mutations (invoice.created,
+// team.role_changed, ...). Written by services after a successful write,
+// never by controllers directly, so no mutation path can skip it.
+model ActivityLog {
+  id         String   @id @default(uuid())
+  companyId  String
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@map("activity_logs")
 }

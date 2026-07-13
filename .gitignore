@@ -15,6 +15,9 @@ out/
 # Prisma generated client
 db/src/generated/
 
+# Uploaded files (local dev only — persisted via a volume in Docker)
+api/uploads/
+
 # Logs
 npm-debug.log*
 *.log

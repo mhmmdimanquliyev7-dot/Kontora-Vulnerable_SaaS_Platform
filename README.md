@@ -3,8 +3,10 @@
 Kontora is a B2B SaaS invoicing and client-management platform. This repo is a
 portfolio project built to production-quality standards.
 
-Built in chapters: chapter 1 was the clean project skeleton; chapter 2 (this
-one) adds the data model and authentication.
+Built in chapters: chapter 1 was the clean project skeleton, chapter 2 added
+the data model and authentication, and chapter 3 (this one) adds the core
+API — clients, invoices, expenses, team management, dashboard, company
+settings, and an activity log.
 
 ## Stack
 
@@ -122,7 +124,8 @@ Company ─┬─ TeamMembership ─── User
           ├─ Client ─── Invoice ─── InvoiceItem
           ├─ Invoice
           ├─ Expense
-          └─ Session
+          ├─ Session
+          └─ ActivityLog
 ```
 
 - **TeamMembership.role**: `OWNER | ACCOUNTANT | MEMBER | CLIENT_GUEST`,
@@ -134,6 +137,13 @@ Company ─┬─ TeamMembership ─── User
 - **Session**: one row per refresh token = one logged-in session, scoped to
   a specific company context. Access tokens are short-lived JWTs derived
   from a session and never stored server-side.
+- **ActivityLog**: append-only audit trail, written by services after a
+  successful write.
+- `Invoice.client` is `onDelete: Restrict`, not `Cascade` — deleting a
+  client with existing invoices is rejected (409) rather than silently
+  deleting revenue history.
+- `Company` also carries `website`, `address`, and `logoUrl` (company
+  settings/branding).
 
 ## Authentication
 
@@ -177,6 +187,107 @@ different company the user belongs to.
 | GET    | `/api/invoices`            | session        | All roles; CLIENT_GUEST sees only their own client's invoices |
 | GET    | `/api/expenses`            | session        | OWNER/ACCOUNTANT only                                         |
 | GET    | `/api/team`                | session        | OWNER/ACCOUNTANT only                                         |
+
+## API reference
+
+Every write endpoint validates its body with zod; every endpoint scopes to
+`req.auth.companyId` from the verified access token, never a request
+param/body/query — a client cannot address another tenant's data by editing
+an id. Cross-tenant reads/writes return `404` (not `403`), so a guessed id
+from another company doesn't even confirm the record exists.
+
+### Clients
+
+| Method | Path               | Role                    | Notes                            |
+| ------ | ------------------ | ----------------------- | -------------------------------- |
+| GET    | `/api/clients`     | OWNER/ACCOUNTANT/MEMBER | `?search=` matches name or email |
+| GET    | `/api/clients/:id` | OWNER/ACCOUNTANT/MEMBER |                                  |
+| POST   | `/api/clients`     | OWNER/ACCOUNTANT/MEMBER |                                  |
+| PATCH  | `/api/clients/:id` | OWNER/ACCOUNTANT/MEMBER |                                  |
+| DELETE | `/api/clients/:id` | OWNER/ACCOUNTANT        | 409 if the client has invoices   |
+
+### Invoices
+
+| Method | Path                       | Role                    | Notes                                                   |
+| ------ | -------------------------- | ----------------------- | ------------------------------------------------------- |
+| GET    | `/api/invoices`            | all roles               | `?status=`, `?clientId=`; CLIENT_GUEST row-restricted   |
+| GET    | `/api/invoices/:id`        | all roles               | Same row restriction                                    |
+| GET    | `/api/invoices/:id/pdf`    | all roles               | Streams a generated PDF (`application/pdf`)             |
+| POST   | `/api/invoices`            | OWNER/ACCOUNTANT/MEMBER | Totals always computed server-side from `items`         |
+| PATCH  | `/api/invoices/:id`        | OWNER/ACCOUNTANT/MEMBER | 409 unless the invoice is still DRAFT                   |
+| PATCH  | `/api/invoices/:id/status` | OWNER/ACCOUNTANT        | Enforces the DRAFT→SENT→PAID/OVERDUE→VOID state machine |
+| DELETE | `/api/invoices/:id`        | OWNER/ACCOUNTANT        | 409 unless DRAFT — void a sent/paid invoice instead     |
+
+`subtotal`/`tax`/`total` are never accepted from the client — they're
+recomputed from `items` and `taxRate` on every create/update. Editing is
+disabled once an invoice leaves DRAFT, so a sent/paid invoice's recorded
+amounts can't drift after the fact.
+
+### Expenses
+
+All endpoints OWNER/ACCOUNTANT only — same rationale as the dashboard.
+
+| Method | Path                       | Notes                            |
+| ------ | -------------------------- | -------------------------------- |
+| GET    | `/api/expenses`            | `?category=`                     |
+| GET    | `/api/expenses/categories` | Suggested + in-use category list |
+| GET    | `/api/expenses/:id`        |                                  |
+| POST   | `/api/expenses`            |                                  |
+| PATCH  | `/api/expenses/:id`        |                                  |
+| DELETE | `/api/expenses/:id`        |                                  |
+
+### Team
+
+| Method | Path                           | Role             | Notes                                                                               |
+| ------ | ------------------------------ | ---------------- | ----------------------------------------------------------------------------------- |
+| GET    | `/api/team`                    | OWNER/ACCOUNTANT | Roster                                                                              |
+| POST   | `/api/team/invite`             | OWNER            | See the note below on invited users' passwords                                      |
+| PATCH  | `/api/team/:membershipId/role` | OWNER            | 409 if it would leave the company with 0 owners                                     |
+| DELETE | `/api/team/:membershipId`      | OWNER            | Same last-owner protection; also revokes their sessions in this company immediately |
+
+Inviting an email with no existing account creates the `User` with a
+random, never-returned password — there's no email delivery in this
+project yet, so that account can't log in until a password-reset flow
+exists. Inviting an email that already has an account elsewhere links them
+to this company instead.
+
+### Dashboard
+
+| Method | Path                     | Role             |
+| ------ | ------------------------ | ---------------- |
+| GET    | `/api/dashboard/summary` | OWNER/ACCOUNTANT |
+
+Returns `totalRevenue` (sum of PAID invoices), `outstandingAmount` (sum of
+SENT+OVERDUE), `overdueCount` (explicit OVERDUE plus SENT past its due
+date), `totalExpenses`, `clientCount`, `invoiceCount`, and the 5 most
+recent activity log entries.
+
+### Company settings
+
+| Method | Path                | Role      | Notes                                          |
+| ------ | ------------------- | --------- | ---------------------------------------------- |
+| GET    | `/api/company`      | all roles |                                                |
+| PATCH  | `/api/company`      | OWNER     | name/website/address                           |
+| POST   | `/api/company/logo` | OWNER     | multipart `logo` field, PNG/JPEG/WebP, max 2MB |
+
+The uploaded logo is re-encoded through `sharp` (resized, converted to
+PNG) rather than saved as-is — this both normalizes the format and acts as
+a stronger validity check than trusting the client's declared
+Content-Type: sharp rejects anything it can't actually decode as an image.
+The stored filename is always `{companyId}.png`, never derived from the
+client's original filename, so there's no path-traversal surface. Served
+back at `/uploads/logos/{companyId}.png`.
+
+### Activity log
+
+| Method | Path            | Role             | Notes                           |
+| ------ | --------------- | ---------------- | ------------------------------- |
+| GET    | `/api/activity` | OWNER/ACCOUNTANT | `?limit=` (max 100), `?offset=` |
+
+Written by services after a successful mutation (`client.created`,
+`invoice.status_changed`, `team.role_changed`, ...) — never by controllers
+directly, so no write path can skip it. A logging failure is swallowed and
+logged server-side rather than failing the request that triggered it.
 
 `/api/auth/login` and `/api/auth/register` are rate-limited (Redis-backed,
 shared across replicas) to slow down credential stuffing / brute force.
@@ -240,7 +351,9 @@ this — it's a local-machine networking quirk, not a project issue.
 
 ## Status
 
-Data model + authentication are in place (this chapter). No invoicing/client
-CRUD UI yet — the current API only exposes read-only, tenant-scoped list
-endpoints to demonstrate the access-control layer. Frontend auth screens and
-full CRUD land in later chapters.
+Data model, authentication, and the core API (clients, invoices, expenses,
+team, dashboard, company settings, activity log) are in place — all
+tenant-scoped, role-checked, and zod-validated. No frontend UI yet; every
+endpoint above has only been exercised via the API directly. That, plus a
+real password-reset flow (see the Team section's note on invited users),
+is the natural next chapter.

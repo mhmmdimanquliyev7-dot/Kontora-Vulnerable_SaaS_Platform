@@ -1,8 +1,11 @@
 import { Router } from "express";
 
 import { requireAuth } from "@/middleware/requireAuth.js";
+import { activityRouter } from "@/routes/activity.routes.js";
 import { authRouter } from "@/routes/auth.routes.js";
 import { clientRouter } from "@/routes/client.routes.js";
+import { companyRouter } from "@/routes/company.routes.js";
+import { dashboardRouter } from "@/routes/dashboard.routes.js";
 import { expenseRouter } from "@/routes/expense.routes.js";
 import { healthRouter } from "@/routes/health.routes.js";
 import { invoiceRouter } from "@/routes/invoice.routes.js";
@@ -17,3 +20,6 @@ apiRouter.use("/clients", requireAuth, clientRouter);
 apiRouter.use("/invoices", requireAuth, invoiceRouter);
 apiRouter.use("/expenses", requireAuth, expenseRouter);
 apiRouter.use("/team", requireAuth, teamRouter);
+apiRouter.use("/dashboard", requireAuth, dashboardRouter);
+apiRouter.use("/company", requireAuth, companyRouter);
+apiRouter.use("/activity", requireAuth, activityRouter);

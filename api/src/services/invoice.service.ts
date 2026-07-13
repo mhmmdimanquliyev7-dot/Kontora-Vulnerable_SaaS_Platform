@@ -1,5 +1,7 @@
+import { ConflictError, NotFoundError } from "@/lib/errors.js";
 import { prisma } from "@/lib/prisma.js";
-import { Role } from "@kontora/db";
+import { recordActivity } from "@/services/activity.service.js";
+import { InvoiceStatus, Role } from "@kontora/db";
 
 export interface InvoiceViewer {
   userId: string;
@@ -7,10 +9,80 @@ export interface InvoiceViewer {
   role: Role;
 }
 
+export interface LineItemInput {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface InvoiceInput {
+  clientId: string;
+  issueDate: Date;
+  dueDate: Date;
+  currency: string;
+  taxRate: number;
+  notes?: string;
+  items: LineItemInput[];
+}
+
+function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+// Totals are always derived server-side from the line items — the client
+// never sends (or can influence) subtotal/tax/total directly.
+function computeTotals(items: LineItemInput[], taxRatePercent: number) {
+  const computedItems = items.map((item, position) => ({
+    ...item,
+    amount: round2(item.quantity * item.unitPrice),
+    position,
+  }));
+  const subtotal = round2(computedItems.reduce((sum, item) => sum + item.amount, 0));
+  const tax = round2(subtotal * (taxRatePercent / 100));
+  const total = round2(subtotal + tax);
+  return { computedItems, subtotal, tax, total };
+}
+
+const MAX_NUMBER_ATTEMPTS = 5;
+
+async function generateInvoiceNumber(companyId: string): Promise<string> {
+  const count = await prisma.invoice.count({ where: { companyId } });
+  return `INV-${String(count + 1).padStart(4, "0")}`;
+}
+
+async function findVisibleInvoice(viewer: InvoiceViewer, invoiceId: string) {
+  if (viewer.role === Role.CLIENT_GUEST) {
+    const membership = await prisma.teamMembership.findUnique({
+      where: { userId_companyId: { userId: viewer.userId, companyId: viewer.companyId } },
+    });
+    if (!membership?.clientId) return null;
+    return prisma.invoice.findFirst({
+      where: { id: invoiceId, companyId: viewer.companyId, clientId: membership.clientId },
+      include: { client: true, items: { orderBy: { position: "asc" } } },
+    });
+  }
+
+  return prisma.invoice.findFirst({
+    where: { id: invoiceId, companyId: viewer.companyId },
+    include: { client: true, items: { orderBy: { position: "asc" } } },
+  });
+}
+
+export async function getInvoice(viewer: InvoiceViewer, invoiceId: string) {
+  const invoice = await findVisibleInvoice(viewer, invoiceId);
+  if (!invoice) throw new NotFoundError("Invoice not found.");
+  return invoice;
+}
+
+export interface ListInvoicesParams {
+  status?: InvoiceStatus;
+  clientId?: string;
+}
+
 // Tenant isolation (companyId) plus a row-level restriction for
 // CLIENT_GUEST: they may only see invoices for the single Client record
 // their membership is linked to, never the company's full invoice list.
-export async function listInvoices(viewer: InvoiceViewer) {
+export async function listInvoices(viewer: InvoiceViewer, params: ListInvoicesParams = {}) {
   if (viewer.role === Role.CLIENT_GUEST) {
     const membership = await prisma.teamMembership.findUnique({
       where: { userId_companyId: { userId: viewer.userId, companyId: viewer.companyId } },
@@ -21,15 +93,205 @@ export async function listInvoices(viewer: InvoiceViewer) {
     }
 
     return prisma.invoice.findMany({
-      where: { companyId: viewer.companyId, clientId: membership.clientId },
-      include: { client: true, items: true },
+      where: {
+        companyId: viewer.companyId,
+        clientId: membership.clientId,
+        ...(params.status ? { status: params.status } : {}),
+      },
+      include: { client: true, items: { orderBy: { position: "asc" } } },
       orderBy: { issueDate: "desc" },
     });
   }
 
   return prisma.invoice.findMany({
-    where: { companyId: viewer.companyId },
-    include: { client: true, items: true },
+    where: {
+      companyId: viewer.companyId,
+      ...(params.status ? { status: params.status } : {}),
+      ...(params.clientId ? { clientId: params.clientId } : {}),
+    },
+    include: { client: true, items: { orderBy: { position: "asc" } } },
     orderBy: { issueDate: "desc" },
+  });
+}
+
+async function assertClientBelongsToCompany(companyId: string, clientId: string): Promise<void> {
+  const client = await prisma.client.findFirst({ where: { id: clientId, companyId } });
+  if (!client) {
+    throw new NotFoundError("Client not found.");
+  }
+}
+
+export async function createInvoice(companyId: string, actorUserId: string, input: InvoiceInput) {
+  await assertClientBelongsToCompany(companyId, input.clientId);
+
+  const { computedItems, subtotal, tax, total } = computeTotals(input.items, input.taxRate);
+
+  // A rare concurrent create can race on the (companyId, number) unique
+  // constraint; retry with a freshly-recomputed number rather than fail the
+  // request outright.
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_NUMBER_ATTEMPTS; attempt++) {
+    const number = await generateInvoiceNumber(companyId);
+    try {
+      const invoice = await prisma.invoice.create({
+        data: {
+          companyId,
+          clientId: input.clientId,
+          createdById: actorUserId,
+          number,
+          status: InvoiceStatus.DRAFT,
+          issueDate: input.issueDate,
+          dueDate: input.dueDate,
+          currency: input.currency,
+          subtotal: subtotal.toFixed(2),
+          tax: tax.toFixed(2),
+          total: total.toFixed(2),
+          notes: input.notes,
+          items: {
+            create: computedItems.map((item) => ({
+              description: item.description,
+              quantity: item.quantity.toFixed(2),
+              unitPrice: item.unitPrice.toFixed(2),
+              amount: item.amount.toFixed(2),
+              position: item.position,
+            })),
+          },
+        },
+        include: { client: true, items: { orderBy: { position: "asc" } } },
+      });
+
+      await recordActivity({
+        companyId,
+        userId: actorUserId,
+        action: "invoice.created",
+        entityType: "Invoice",
+        entityId: invoice.id,
+        metadata: { number: invoice.number, total: total.toFixed(2) },
+      });
+
+      return invoice;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
+
+export async function updateInvoice(
+  companyId: string,
+  actorUserId: string,
+  invoiceId: string,
+  input: InvoiceInput,
+) {
+  const existing = await prisma.invoice.findFirst({ where: { id: invoiceId, companyId } });
+  if (!existing) throw new NotFoundError("Invoice not found.");
+  if (existing.status !== InvoiceStatus.DRAFT) {
+    throw new ConflictError("Only draft invoices can be edited.");
+  }
+
+  await assertClientBelongsToCompany(companyId, input.clientId);
+
+  const { computedItems, subtotal, tax, total } = computeTotals(input.items, input.taxRate);
+
+  const invoice = await prisma.$transaction(async (tx) => {
+    await tx.invoiceItem.deleteMany({ where: { invoiceId } });
+    return tx.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        clientId: input.clientId,
+        issueDate: input.issueDate,
+        dueDate: input.dueDate,
+        currency: input.currency,
+        subtotal: subtotal.toFixed(2),
+        tax: tax.toFixed(2),
+        total: total.toFixed(2),
+        notes: input.notes,
+        items: {
+          create: computedItems.map((item) => ({
+            description: item.description,
+            quantity: item.quantity.toFixed(2),
+            unitPrice: item.unitPrice.toFixed(2),
+            amount: item.amount.toFixed(2),
+            position: item.position,
+          })),
+        },
+      },
+      include: { client: true, items: { orderBy: { position: "asc" } } },
+    });
+  });
+
+  await recordActivity({
+    companyId,
+    userId: actorUserId,
+    action: "invoice.updated",
+    entityType: "Invoice",
+    entityId: invoice.id,
+    metadata: { number: invoice.number, total: total.toFixed(2) },
+  });
+
+  return invoice;
+}
+
+const ALLOWED_TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
+  [InvoiceStatus.DRAFT]: [InvoiceStatus.SENT, InvoiceStatus.VOID],
+  [InvoiceStatus.SENT]: [InvoiceStatus.PAID, InvoiceStatus.OVERDUE, InvoiceStatus.VOID],
+  [InvoiceStatus.OVERDUE]: [InvoiceStatus.PAID, InvoiceStatus.VOID],
+  [InvoiceStatus.PAID]: [InvoiceStatus.VOID],
+  [InvoiceStatus.VOID]: [],
+};
+
+export async function updateInvoiceStatus(
+  companyId: string,
+  actorUserId: string,
+  invoiceId: string,
+  nextStatus: InvoiceStatus,
+) {
+  const existing = await prisma.invoice.findFirst({ where: { id: invoiceId, companyId } });
+  if (!existing) throw new NotFoundError("Invoice not found.");
+
+  if (existing.status === nextStatus) {
+    return existing;
+  }
+
+  const allowed = ALLOWED_TRANSITIONS[existing.status];
+  if (!allowed.includes(nextStatus)) {
+    throw new ConflictError(`Cannot move an invoice from ${existing.status} to ${nextStatus}.`);
+  }
+
+  const invoice = await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: { status: nextStatus },
+    include: { client: true, items: { orderBy: { position: "asc" } } },
+  });
+
+  await recordActivity({
+    companyId,
+    userId: actorUserId,
+    action: "invoice.status_changed",
+    entityType: "Invoice",
+    entityId: invoice.id,
+    metadata: { number: invoice.number, from: existing.status, to: nextStatus },
+  });
+
+  return invoice;
+}
+
+export async function deleteInvoice(companyId: string, actorUserId: string, invoiceId: string) {
+  const existing = await prisma.invoice.findFirst({ where: { id: invoiceId, companyId } });
+  if (!existing) throw new NotFoundError("Invoice not found.");
+  if (existing.status !== InvoiceStatus.DRAFT) {
+    throw new ConflictError(
+      "Only draft invoices can be deleted — void a sent/paid invoice instead.",
+    );
+  }
+
+  await prisma.invoice.delete({ where: { id: invoiceId } });
+  await recordActivity({
+    companyId,
+    userId: actorUserId,
+    action: "invoice.deleted",
+    entityType: "Invoice",
+    entityId: invoiceId,
+    metadata: { number: existing.number },
   });
 }

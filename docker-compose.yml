@@ -51,6 +51,8 @@ services:
       ACCESS_TOKEN_TTL_MINUTES: 15
       REFRESH_TOKEN_TTL_DAYS: 30
       LOGIN_TOKEN_TTL_MINUTES: 5
+    volumes:
+      - api_uploads:/workspace/api/uploads
     ports:
       - "${API_PORT:-4000}:4000"
     healthcheck:
@@ -109,3 +111,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  api_uploads:
