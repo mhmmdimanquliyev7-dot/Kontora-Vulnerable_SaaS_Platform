@@ -36,3 +36,13 @@ coverage/
 # Misc
 *.tsbuildinfo
 .turbo/
+
+# scratch/test files
+*.json.tmp
+cookies.txt
+acme.*
+nimbus.*
+member.*
+export.json
+comment.json
+login.json
