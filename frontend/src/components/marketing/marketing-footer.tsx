@@ -28,13 +28,15 @@ export function MarketingFooter() {
 
         {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
           <div key={heading}>
-            <h3 className="text-sm font-semibold">{heading}</h3>
-            <ul className="mt-3 space-y-2">
+            <h3 className="text-xs font-semibold tracking-wider text-foreground/70 uppercase">
+              {heading}
+            </h3>
+            <ul className="mt-4 space-y-2.5">
               {links.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground"
+                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {link.label}
                   </Link>

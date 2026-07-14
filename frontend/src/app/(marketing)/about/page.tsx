@@ -30,17 +30,24 @@ const VALUES = [
 export default function AboutPage() {
   return (
     <>
-      <section className="mx-auto w-full max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          We built the invoicing tool we wished we had
-        </h1>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-          Kontora started as a simple question: why does sending an invoice and knowing where
-          your business stands have to be two different tools?
-        </p>
+      <section className="relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(65%_60%_at_50%_0%,color-mix(in_oklab,var(--color-primary)_10%,transparent),transparent)]"
+        />
+        <div className="mx-auto w-full max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20">
+          <p className="text-sm font-semibold tracking-wider text-primary uppercase">About</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+            We built the invoicing tool we wished we had
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
+            Kontora started as a simple question: why does sending an invoice and knowing where
+            your business stands have to be two different tools?
+          </p>
+        </div>
       </section>
 
-      <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-16 text-muted-foreground sm:px-6">
+      <section className="mx-auto w-full max-w-3xl space-y-5 px-4 pb-16 text-lg/8 text-muted-foreground sm:px-6">
         <p>
           Most invoicing software falls into one of two camps: bloated finance suites built for
           enterprise accounting teams, or bare-bones templates that leave you exporting
@@ -61,10 +68,12 @@ export default function AboutPage() {
         </p>
       </section>
 
-      <section className="border-t bg-muted/20">
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
-          <h2 className="text-center text-2xl font-semibold tracking-tight">What we believe</h2>
-          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+      <section className="border-t bg-muted/40">
+        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+          <h2 className="text-center text-2xl font-semibold tracking-tight sm:text-3xl">
+            What we believe
+          </h2>
+          <div className="mt-12 grid gap-4 sm:grid-cols-3">
             {VALUES.map((value) => (
               <FeatureCard key={value.title} {...value} />
             ))}

@@ -118,13 +118,20 @@ function ComparisonCell({ value }: { value: string | boolean }) {
 export default function PricingPage() {
   return (
     <>
-      <section className="mx-auto w-full max-w-6xl px-4 py-16 text-center sm:px-6 sm:py-20">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          Simple pricing that grows with you
-        </h1>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-          Start free. Upgrade when your team does.
-        </p>
+      <section className="relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(65%_60%_at_50%_0%,color-mix(in_oklab,var(--color-primary)_10%,transparent),transparent)]"
+        />
+        <div className="mx-auto w-full max-w-6xl px-4 py-16 text-center sm:px-6 sm:py-20">
+          <p className="text-sm font-semibold tracking-wider text-primary uppercase">Pricing</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+            Simple pricing that grows with you
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
+            Start free. Upgrade when your team does.
+          </p>
+        </div>
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
@@ -132,15 +139,22 @@ export default function PricingPage() {
           {TIERS.map((tier) => (
             <Card
               key={tier.name}
-              className={cn("relative flex flex-col", tier.highlighted && "border-primary shadow-md")}
+              className={cn(
+                "relative flex flex-col shadow-xs transition-shadow hover:shadow-md",
+                tier.highlighted && "shadow-lg ring-2 ring-primary hover:shadow-xl",
+              )}
             >
               {tier.highlighted && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Most popular</Badge>
+                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-violet-600 shadow-sm">
+                  Most popular
+                </Badge>
               )}
               <CardHeader>
-                <h2 className="font-semibold">{tier.name}</h2>
+                <h2 className="font-heading font-semibold">{tier.name}</h2>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-semibold tracking-tight">{tier.price}</span>
+                  <span className="font-heading text-4xl font-semibold tracking-tight">
+                    {tier.price}
+                  </span>
                   {tier.cadence && <span className="text-sm text-muted-foreground">{tier.cadence}</span>}
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{tier.description}</p>
@@ -165,10 +179,10 @@ export default function PricingPage() {
 
       <section className="mx-auto w-full max-w-6xl px-4 pb-20 sm:px-6">
         <h2 className="text-center text-2xl font-semibold tracking-tight">Compare plans</h2>
-        <div className="mt-8 overflow-x-auto rounded-xl border">
+        <div className="mt-8 overflow-x-auto rounded-xl border bg-card shadow-xs">
           <table className="w-full min-w-[600px] border-collapse text-sm">
             <thead>
-              <tr className="border-b bg-muted/30">
+              <tr className="border-b bg-muted/50">
                 <th className="p-4 text-left font-medium">Feature</th>
                 {TIERS.map((tier) => (
                   <th key={tier.name} className="p-4 text-center font-medium">
@@ -197,11 +211,11 @@ export default function PricingPage() {
         <h2 className="text-center text-2xl font-semibold tracking-tight">
           Frequently asked questions
         </h2>
-        <div className="mt-8 space-y-6">
+        <div className="mt-8 space-y-3">
           {FAQS.map((faq) => (
-            <div key={faq.question}>
+            <div key={faq.question} className="rounded-xl border bg-card p-5 shadow-xs">
               <h3 className="font-medium">{faq.question}</h3>
-              <p className="mt-1.5 text-sm text-muted-foreground">{faq.answer}</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{faq.answer}</p>
             </div>
           ))}
         </div>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import {
   Bot,
+  Check,
   FileText,
   LayoutDashboard,
   Receipt,
@@ -87,14 +88,21 @@ const SECTIONS = [
 export default function FeaturesPage() {
   return (
     <>
-      <section className="mx-auto w-full max-w-6xl px-4 py-16 text-center sm:px-6 sm:py-20">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          Everything you need to run your invoicing
-        </h1>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-          One workspace for invoices, clients, expenses, and the reporting to make sense of it
-          all.
-        </p>
+      <section className="relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(65%_60%_at_50%_0%,color-mix(in_oklab,var(--color-primary)_10%,transparent),transparent)]"
+        />
+        <div className="mx-auto w-full max-w-6xl px-4 py-16 text-center sm:px-6 sm:py-20">
+          <p className="text-sm font-semibold tracking-wider text-primary uppercase">Features</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+            Everything you need to run your invoicing
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
+            One workspace for invoices, clients, expenses, and the reporting to make sense of it
+            all.
+          </p>
+        </div>
       </section>
 
       <section className="mx-auto w-full max-w-6xl space-y-16 px-4 pb-20 sm:px-6">
@@ -106,17 +114,17 @@ export default function FeaturesPage() {
             }`}
           >
             <div className="md:w-1/2">
-              <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10">
-                <section.icon className="size-6 text-primary" aria-hidden="true" />
+              <div className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-violet-500/15 text-primary ring-1 ring-primary/15">
+                <section.icon className="size-6" aria-hidden="true" />
               </div>
               <h2 className="mt-4 text-2xl font-semibold tracking-tight">{section.title}</h2>
-              <p className="mt-3 text-muted-foreground">{section.description}</p>
+              <p className="mt-3 leading-relaxed text-muted-foreground">{section.description}</p>
             </div>
             <div className="md:w-1/2">
-              <ul className="space-y-3 rounded-xl border bg-card p-6">
+              <ul className="space-y-3.5 rounded-xl border bg-card p-6 shadow-xs">
                 {section.points.map((point) => (
                   <li key={point} className="flex items-start gap-2.5 text-sm">
-                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
+                    <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
                     {point}
                   </li>
                 ))}

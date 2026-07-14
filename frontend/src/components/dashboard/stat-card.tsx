@@ -12,7 +12,7 @@ interface StatCardProps {
 
 export function StatCard({ label, value, icon: Icon, accentClassName }: StatCardProps) {
   return (
-    <Card>
+    <Card className="transition-shadow duration-200 hover:shadow-md">
       <CardContent className="flex items-center gap-4">
         <div
           className={cn(
@@ -25,7 +25,7 @@ export function StatCard({ label, value, icon: Icon, accentClassName }: StatCard
         <div className="min-w-0">
           <p className="text-sm text-muted-foreground">{label}</p>
           <p
-            className="truncate text-2xl font-semibold tracking-tight"
+            className="truncate font-heading text-2xl font-semibold tracking-tight"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
             {value}

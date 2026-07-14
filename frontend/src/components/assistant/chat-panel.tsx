@@ -54,7 +54,7 @@ function Bubble({ message }: { message: ChatMessage }) {
         <AvatarFallback
           className={cn(
             "text-xs",
-            isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+            isUser ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary",
           )}
         >
           {isUser ? <User className="size-3.5" /> : <Bot className="size-3.5" />}
@@ -62,10 +62,10 @@ function Bubble({ message }: { message: ChatMessage }) {
       </Avatar>
       <div
         className={cn(
-          "max-w-[75%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap",
+          "max-w-[75%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap shadow-xs",
           isUser
-            ? "rounded-tr-sm bg-primary text-primary-foreground"
-            : "rounded-tl-sm bg-muted text-foreground",
+            ? "rounded-tr-sm bg-gradient-to-br from-primary to-violet-600 text-primary-foreground dark:to-violet-500"
+            : "rounded-tl-sm border bg-card text-card-foreground",
         )}
       >
         {message.content}
@@ -128,7 +128,7 @@ export function ChatPanel() {
                   key={prompt}
                   type="button"
                   onClick={() => submit(prompt)}
-                  className="rounded-full border px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground"
+                  className="rounded-full border bg-card px-3 py-1.5 text-xs shadow-xs transition-colors hover:border-primary/30 hover:bg-accent hover:text-accent-foreground"
                 >
                   {prompt}
                 </button>
@@ -144,11 +144,11 @@ export function ChatPanel() {
         {typing && (
           <div className="flex items-start gap-2.5">
             <Avatar className="size-7 shrink-0">
-              <AvatarFallback className="bg-muted text-foreground">
+              <AvatarFallback className="bg-primary/10 text-primary">
                 <Bot className="size-3.5" />
               </AvatarFallback>
             </Avatar>
-            <div className="rounded-2xl rounded-tl-sm bg-muted px-3.5 py-2">
+            <div className="rounded-2xl rounded-tl-sm border bg-card px-3.5 py-2 shadow-xs">
               <TypingIndicator />
             </div>
           </div>
