@@ -1,6 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
+// Prefix-matched (a sub-path like /reset-password?token=... still matches).
+// Not the marketing site's home page — that's "/" exactly, handled
+// separately below, since a plain startsWith("/") would match every path.
+const PUBLIC_PATHS = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/features",
+  "/pricing",
+  "/about",
+];
+
+function isPublicPath(pathname: string): boolean {
+  return pathname === "/" || PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+}
 
 // Cookies are set by the API with no explicit Domain, so they're host-only
 // for "localhost" — which the browser sends to the Next.js server too (same
@@ -15,7 +30,7 @@ const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-passwor
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
