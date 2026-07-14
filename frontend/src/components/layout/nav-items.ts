@@ -1,4 +1,5 @@
 import {
+  Bot,
   FileText,
   History,
   LayoutDashboard,
@@ -6,6 +7,7 @@ import {
   Settings,
   Users,
   UsersRound,
+  Webhook,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,8 +29,10 @@ export const NAV_ITEMS: NavItem[] = [
   // explicitly anyway so intent is clear even if that redirect changes.
   { href: "/invoices", label: "Invoices", icon: FileText, roles: ["OWNER", "ACCOUNTANT", "MEMBER"] },
   { href: "/expenses", label: "Expenses", icon: Receipt, roles: ["OWNER", "ACCOUNTANT"] },
+  { href: "/assistant", label: "Assistant", icon: Bot, roles: ["OWNER", "ACCOUNTANT", "MEMBER"] },
   { href: "/team", label: "Team", icon: UsersRound, roles: ["OWNER", "ACCOUNTANT"] },
   { href: "/activity", label: "Activity", icon: History, roles: ["OWNER", "ACCOUNTANT"] },
+  { href: "/settings/webhooks", label: "Webhooks", icon: Webhook, roles: ["OWNER"] },
   { href: "/settings/company", label: "Settings", icon: Settings, roles: ["OWNER"] },
 ];
 

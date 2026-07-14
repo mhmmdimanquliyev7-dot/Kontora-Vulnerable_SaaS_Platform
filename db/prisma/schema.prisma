@@ -49,6 +49,7 @@ model Company {
   expenses     Expense[]
   sessions     Session[]
   activityLogs ActivityLog[]
+  webhooks     Webhook[]
 
   @@map("companies")
 }
@@ -220,6 +221,50 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+// A company-configured HTTP callback, called when one of `events` happens
+// to one of their own records (see webhook.service.ts's dispatchEvent).
+// `secret` signs every delivery (HMAC-SHA256 over the raw body, same idea
+// as Stripe/GitHub webhooks) so the receiving endpoint can verify a
+// request genuinely came from Kontora — returned to the caller in full
+// only once, at creation (see webhook.service.ts's redaction on read).
+model Webhook {
+  id          String   @id @default(uuid())
+  companyId   String
+  url         String
+  description String?
+  secret      String
+  isActive    Boolean  @default(true)
+  events      String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([companyId])
+  @@map("webhooks")
+}
+
+// One row per delivery attempt (both real events and the "test webhook"
+// button) — lets the settings UI show whether a webhook is actually
+// working, not just that it's configured.
+model WebhookDelivery {
+  id           String   @id @default(uuid())
+  webhookId    String
+  event        String
+  payload      Json
+  statusCode   Int?
+  success      Boolean
+  errorMessage String?
+  durationMs   Int?
+  createdAt    DateTime @default(now())
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt])
+  @@map("webhook_deliveries")
 }
 
 // Append-only audit trail of tenant-scoped mutations (invoice.created,

@@ -127,3 +127,38 @@ export interface MeResult {
   role: Role;
   companies: CompanyMembership[];
 }
+
+export type WebhookEvent = "invoice.created" | "invoice.paid";
+
+export interface Webhook {
+  id: string;
+  companyId: string;
+  url: string;
+  description: string | null;
+  isActive: boolean;
+  events: WebhookEvent[];
+  createdAt: string;
+  updatedAt: string;
+  /** Present on list/get responses; the full secret is never returned again after creation. */
+  secretPreview?: string;
+  /** Present only in the response to a successful create — shown once. */
+  secret?: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhookId: string;
+  event: string;
+  payload: Record<string, unknown>;
+  statusCode: number | null;
+  success: boolean;
+  errorMessage: string | null;
+  durationMs: number | null;
+  createdAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}

@@ -1,7 +1,9 @@
 import { ConflictError, NotFoundError } from "@/lib/errors.js";
 import { prisma } from "@/lib/prisma.js";
 import { recordActivity } from "@/services/activity.service.js";
-import { InvoiceStatus, Role } from "@kontora/db";
+import * as webhookService from "@/services/webhook.service.js";
+import { InvoiceStatus, Role, type Client, type Invoice } from "@kontora/db";
+import type { WebhookEvent } from "@/validation/webhook.schemas.js";
 
 export interface InvoiceViewer {
   userId: string;
@@ -114,6 +116,30 @@ export async function listInvoices(viewer: InvoiceViewer, params: ListInvoicesPa
   });
 }
 
+// Fire-and-forget on purpose — see webhook.service.ts's dispatchEvent for
+// why a request that just wrote to the database shouldn't wait on an
+// arbitrary external URL before returning to the caller.
+function fireInvoiceWebhook(
+  companyId: string,
+  event: WebhookEvent,
+  invoice: Invoice & { client: Client },
+): void {
+  webhookService
+    .dispatchEvent(companyId, event, {
+      id: invoice.id,
+      number: invoice.number,
+      status: invoice.status,
+      total: invoice.total.toString(),
+      currency: invoice.currency,
+      clientName: invoice.client.name,
+      issueDate: invoice.issueDate.toISOString(),
+      dueDate: invoice.dueDate.toISOString(),
+    })
+    .catch((err: unknown) => {
+      console.error(`Failed to dispatch ${event} webhook event:`, err);
+    });
+}
+
 async function assertClientBelongsToCompany(companyId: string, clientId: string): Promise<void> {
   const client = await prisma.client.findFirst({ where: { id: clientId, companyId } });
   if (!client) {
@@ -168,6 +194,7 @@ export async function createInvoice(companyId: string, actorUserId: string, inpu
         entityId: invoice.id,
         metadata: { number: invoice.number, total: total.toFixed(2) },
       });
+      fireInvoiceWebhook(companyId, "invoice.created", invoice);
 
       return invoice;
     } catch (err) {
@@ -272,6 +299,9 @@ export async function updateInvoiceStatus(
     entityId: invoice.id,
     metadata: { number: invoice.number, from: existing.status, to: nextStatus },
   });
+  if (nextStatus === InvoiceStatus.PAID) {
+    fireInvoiceWebhook(companyId, "invoice.paid", invoice);
+  }
 
   return invoice;
 }
@@ -305,6 +335,7 @@ export async function payInvoice(viewer: InvoiceViewer, invoiceId: string) {
     entityId: invoice.id,
     metadata: { number: invoice.number, total: invoice.total.toString() },
   });
+  fireInvoiceWebhook(viewer.companyId, "invoice.paid", invoice);
 
   return invoice;
 }
