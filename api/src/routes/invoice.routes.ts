@@ -23,6 +23,10 @@ const canWrite = requireRole(Role.OWNER, Role.ACCOUNTANT, Role.MEMBER);
 // with a financial document — restricted to the two financially-accountable
 // roles.
 const canChangeState = requireRole(Role.OWNER, Role.ACCOUNTANT);
+// The client-portal self-service "Pay Now" action — a client paying their
+// own bill, not a team member changing invoice state, so it's scoped to
+// CLIENT_GUEST alone rather than folded into canChangeState above.
+const clientCanPay = requireRole(Role.CLIENT_GUEST);
 
 invoiceRouter.get("/", invoiceController.list);
 invoiceRouter.post(
@@ -42,6 +46,7 @@ invoiceRouter.patch(
   invoiceController.updateStatus,
 );
 invoiceRouter.delete("/:id", canChangeState, invoiceController.remove);
+invoiceRouter.post("/:id/pay", clientCanPay, invoiceController.pay);
 
 // Comments: an internal team discussion thread per invoice, backed by
 // MongoDB (see invoiceComment.service.ts) — deliberately excluded for

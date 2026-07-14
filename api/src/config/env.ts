@@ -20,6 +20,16 @@ const envSchema = z.object({
 
   MONGODB_URL: z.string().min(1, "MONGODB_URL is required"),
 
+  // Outbound mail (currently: password reset links). Points at MailHog in
+  // dev/docker-compose.yml (no auth, no TLS); a real SMTP provider in
+  // production, which is why SMTP_USER/SMTP_PASSWORD exist but are
+  // optional — MailHog needs neither.
+  SMTP_HOST: z.string().min(1, "SMTP_HOST is required"),
+  SMTP_PORT: z.coerce.number().int().positive().default(1025),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  MAIL_FROM: z.string().min(1, "MAIL_FROM is required"),
+
   // Internal-only satellite services (report-service, export-worker) — never
   // published to the host, reachable only over the Docker network — plus
   // the shared secret every call to them must carry. Network isolation is

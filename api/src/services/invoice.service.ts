@@ -276,6 +276,39 @@ export async function updateInvoiceStatus(
   return invoice;
 }
 
+// Client-portal self-service payment. Deliberately its own narrow endpoint
+// rather than opening up updateInvoiceStatus to CLIENT_GUEST: that would
+// let a client drive *any* transition (VOID, etc.), not just pay their own
+// bill. findVisibleInvoice's CLIENT_GUEST row restriction means a client
+// can only ever reach an invoice belonging to their own linked Client here.
+// No real payment processor is wired up — this simulates the outcome
+// (SENT/OVERDUE -> PAID) for demo purposes.
+export async function payInvoice(viewer: InvoiceViewer, invoiceId: string) {
+  const existing = await findVisibleInvoice(viewer, invoiceId);
+  if (!existing) throw new NotFoundError("Invoice not found.");
+
+  if (existing.status !== InvoiceStatus.SENT && existing.status !== InvoiceStatus.OVERDUE) {
+    throw new ConflictError("Only sent or overdue invoices can be paid.");
+  }
+
+  const invoice = await prisma.invoice.update({
+    where: { id: existing.id },
+    data: { status: InvoiceStatus.PAID },
+    include: { client: true, items: { orderBy: { position: "asc" } } },
+  });
+
+  await recordActivity({
+    companyId: viewer.companyId,
+    userId: viewer.userId,
+    action: "invoice.paid",
+    entityType: "Invoice",
+    entityId: invoice.id,
+    metadata: { number: invoice.number, total: invoice.total.toString() },
+  });
+
+  return invoice;
+}
+
 export async function deleteInvoice(companyId: string, actorUserId: string, invoiceId: string) {
   const existing = await prisma.invoice.findFirst({ where: { id: invoiceId, companyId } });
   if (!existing) throw new NotFoundError("Invoice not found.");

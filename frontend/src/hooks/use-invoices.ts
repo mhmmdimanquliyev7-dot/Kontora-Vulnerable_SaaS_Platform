@@ -78,3 +78,16 @@ export function useDeleteInvoice() {
       toast.error(error instanceof ApiError ? error.message : "Something went wrong"),
   });
 }
+
+export function usePayInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: invoicesApi.payInvoice,
+    onSuccess: () => {
+      invalidateInvoices(queryClient);
+      toast.success("Payment received — thank you!");
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : "Something went wrong"),
+  });
+}

@@ -63,11 +63,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  memberships     TeamMembership[]
-  sessions        Session[]
-  createdInvoices Invoice[]        @relation("InvoiceCreatedBy")
-  createdExpenses Expense[]        @relation("ExpenseCreatedBy")
-  activityLogs    ActivityLog[]
+  memberships         TeamMembership[]
+  sessions            Session[]
+  createdInvoices     Invoice[]           @relation("InvoiceCreatedBy")
+  createdExpenses     Expense[]           @relation("ExpenseCreatedBy")
+  activityLogs        ActivityLog[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
@@ -200,6 +201,25 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+// One row per issued "forgot password" link. Only the SHA-256 hash of the
+// token is stored (same rationale as Session.refreshTokenHash) — a leaked
+// database dump can't be used to reset anyone's password. usedAt makes the
+// token single-use even though it's also time-limited; a raw token only
+// ever exists in the emailed link and briefly in server memory.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 // Append-only audit trail of tenant-scoped mutations (invoice.created,

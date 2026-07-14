@@ -9,6 +9,7 @@ import {
 import { UnauthorizedError } from "@/lib/errors.js";
 import * as authService from "@/services/auth.service.js";
 import type { AuthTokens } from "@/services/auth.service.js";
+import * as passwordResetService from "@/services/passwordReset.service.js";
 
 function requestMeta(req: Request) {
   return {
@@ -94,4 +95,18 @@ export async function switchCompany(req: Request, res: Response): Promise<void> 
 export async function me(req: Request, res: Response): Promise<void> {
   const result = await authService.getMe(req.auth!.userId, req.auth!.companyId);
   res.status(200).json(result);
+}
+
+// Always the same response whether or not the email is registered — see
+// passwordReset.service.ts for why.
+export async function forgotPassword(req: Request, res: Response): Promise<void> {
+  await passwordResetService.requestPasswordReset(req.body.email);
+  res.status(200).json({
+    message: "If an account exists for that email, we've sent a password reset link.",
+  });
+}
+
+export async function resetPassword(req: Request, res: Response): Promise<void> {
+  await passwordResetService.resetPassword(req.body.token, req.body.password);
+  res.status(200).json({ message: "Password reset. Please log in with your new password." });
 }

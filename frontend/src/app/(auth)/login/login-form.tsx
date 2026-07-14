@@ -50,7 +50,10 @@ export function LoginForm() {
         setCompanyChoice({ loginToken: result.loginToken, companies: result.companies });
         return;
       }
-      router.push("/dashboard");
+      // CLIENT_GUEST never sees the internal admin app — the client portal
+      // (its own route group/shell, see frontend/src/app/(portal)/) is the
+      // only thing that role ever lands in.
+      router.push(result.role === "CLIENT_GUEST" ? "/portal" : "/dashboard");
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Something went wrong");
     }
@@ -59,8 +62,11 @@ export function LoginForm() {
   async function onSelectCompany(companyId: string) {
     if (!companyChoice) return;
     try {
-      await selectCompany.mutateAsync({ loginToken: companyChoice.loginToken, companyId });
-      router.push("/dashboard");
+      const result = await selectCompany.mutateAsync({
+        loginToken: companyChoice.loginToken,
+        companyId,
+      });
+      router.push(result.role === "CLIENT_GUEST" ? "/portal" : "/dashboard");
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Something went wrong");
     }
@@ -129,6 +135,11 @@ export function LoginForm() {
               {...register("password")}
             />
           </FormField>
+          <p className="-mt-2 text-right text-sm">
+            <Link href="/forgot-password" className="text-muted-foreground hover:text-foreground">
+              Forgot password?
+            </Link>
+          </p>
           <Button type="submit" className="w-full" disabled={login.isPending}>
             {login.isPending && <Loader2 className="size-4 animate-spin" />}
             Log in

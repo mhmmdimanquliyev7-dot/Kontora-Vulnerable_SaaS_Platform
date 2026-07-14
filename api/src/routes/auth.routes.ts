@@ -5,8 +5,10 @@ import { authRateLimiter } from "@/middleware/rateLimit.js";
 import { requireAuth } from "@/middleware/requireAuth.js";
 import { validateBody } from "@/middleware/validate.js";
 import {
+  forgotPasswordSchema,
   loginSchema,
   registerSchema,
+  resetPasswordSchema,
   selectCompanySchema,
   switchCompanySchema,
 } from "@/validation/auth.schemas.js";
@@ -20,6 +22,18 @@ authRouter.post(
   authController.register,
 );
 authRouter.post("/login", authRateLimiter, validateBody(loginSchema), authController.login);
+authRouter.post(
+  "/forgot-password",
+  authRateLimiter,
+  validateBody(forgotPasswordSchema),
+  authController.forgotPassword,
+);
+authRouter.post(
+  "/reset-password",
+  authRateLimiter,
+  validateBody(resetPasswordSchema),
+  authController.resetPassword,
+);
 authRouter.post(
   "/select-company",
   authRateLimiter,

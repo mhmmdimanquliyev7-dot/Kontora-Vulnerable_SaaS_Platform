@@ -59,6 +59,11 @@ export async function updateStatus(req: Request, res: Response): Promise<void> {
   res.status(200).json({ invoice });
 }
 
+export async function pay(req: Request, res: Response): Promise<void> {
+  const invoice = await invoiceService.payInvoice(viewerOf(req), requireParam(req, "id"));
+  res.status(200).json({ invoice });
+}
+
 export async function remove(req: Request, res: Response): Promise<void> {
   await invoiceService.deleteInvoice(
     req.auth!.companyId,

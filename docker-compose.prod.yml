@@ -26,6 +26,13 @@ services:
   mongo:
     ports: !reset []
 
+  # A dev-only mail catcher (see docker-compose.yml) — a real deployment
+  # sends through a real provider (below), never through this container, so
+  # its web UI has no reason to be reachable from outside the network
+  # either.
+  mailhog:
+    ports: !reset []
+
   # Never routed through nginx (see nginx/conf.d/default.conf) — dropping
   # the host port mapping too means they're unreachable from outside the
   # Docker network entirely, not just "unproxied."
@@ -42,6 +49,12 @@ services:
       # Same-origin through nginx in the common case; only matters for a
       # request that carries a cross-origin Origin header.
       CORS_ORIGIN: "${CORS_ORIGIN:?Set CORS_ORIGIN in .env.prod to your public origin, e.g. https://kontora.example.com}"
+      # Overrides docker-compose.yml's dev-only mailhog:1025 default — a
+      # real deployment needs an actual SMTP provider for password reset
+      # emails to reach anyone. See .env.prod.example and DEPLOY.md.
+      SMTP_HOST: "${SMTP_HOST:?Set SMTP_HOST in .env.prod to a real SMTP provider}"
+      SMTP_PORT: "${SMTP_PORT:?Set SMTP_PORT in .env.prod (e.g. 587)}"
+      MAIL_FROM: "${MAIL_FROM:?Set MAIL_FROM in .env.prod, e.g. \"Kontora <no-reply@kontora.example.com>\"}"
 
   frontend:
     ports: !reset []

@@ -26,10 +26,12 @@ Internet ──▶ nginx :80 ──┤  /            → frontend:3000         �
   API), `/uploads/*` (company logos, served by the API outside the `/api`
   prefix).
 - **Internal-only, never routed or published:** Postgres, Redis, MongoDB,
-  report-service (PHP), and export-worker (Java). All five are reachable
-  only from other containers on the compose network — report-service and
-  export-worker are only ever called by the `api` container, exactly as in
-  dev, just without a host port mapping to fall back on.
+  report-service (PHP), export-worker (Java), and MailHog. All six are
+  reachable only from other containers on the compose network —
+  report-service and export-worker are only ever called by the `api`
+  container, exactly as in dev, just without a host port mapping to fall
+  back on. `api` doesn't even talk to MailHog in this topology — see the
+  SMTP note below.
 - nginx is the **only** service that publishes a port to the host
   (`NGINX_PORT`, default `80`).
 
@@ -207,3 +209,11 @@ comment in `api/src/lib/cookies.ts`).
   (see above) rather than always non-Secure as in dev.
 - Config comes from `.env.prod` (via `--env-file`), never `.env` — the two
   are never loaded together.
+- Password reset emails go through a real SMTP provider (`SMTP_HOST` /
+  `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `MAIL_FROM` in
+  `.env.prod`), not MailHog — `docker-compose.prod.yml` overrides the
+  dev-only `mailhog:1025` default and fails fast at startup if these
+  aren't set. MailHog itself still runs (it's part of the base compose
+  file) but is no longer published to the host, so its web UI isn't
+  reachable — nothing in production should be sending mail through it
+  anyway.

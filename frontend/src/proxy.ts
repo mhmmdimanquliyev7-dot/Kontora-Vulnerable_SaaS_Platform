@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/register"];
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 // Cookies are set by the API with no explicit Domain, so they're host-only
 // for "localhost" — which the browser sends to the Next.js server too (same

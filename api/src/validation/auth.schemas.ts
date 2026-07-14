@@ -27,3 +27,12 @@ export const selectCompanySchema = z.object({
 export const switchCompanySchema = z.object({
   companyId: z.uuid("companyId must be a valid id"),
 });
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "token is required"),
+  password: passwordSchema,
+});

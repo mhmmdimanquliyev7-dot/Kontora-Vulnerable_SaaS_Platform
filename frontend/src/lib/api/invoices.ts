@@ -64,6 +64,14 @@ export function deleteInvoice(id: string): Promise<void> {
   return apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
 }
 
+// Client-portal self-service payment (CLIENT_GUEST only — see
+// invoiceRouter's clientCanPay). Simulated: there's no real payment
+// processor behind this, it's a direct SENT/OVERDUE -> PAID transition.
+export async function payInvoice(id: string): Promise<Invoice> {
+  const res = await apiFetch<{ invoice: Invoice }>(`/api/invoices/${id}/pay`, { method: "POST" });
+  return res.invoice;
+}
+
 export function invoicePdfUrl(id: string): string {
   return apiUrl(`/api/invoices/${id}/pdf`);
 }

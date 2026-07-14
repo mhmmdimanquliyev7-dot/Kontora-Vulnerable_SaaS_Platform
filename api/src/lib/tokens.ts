@@ -12,3 +12,15 @@ export function generateRefreshToken(): string {
 export function hashRefreshToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
+
+// Same rationale as the refresh token above: an opaque random value emailed
+// to the user, with only its SHA-256 hash ever persisted
+// (PasswordResetToken.tokenHash) — a database leak can't be used to reset
+// anyone's password, and the raw token can't be recovered from storage.
+export function generatePasswordResetToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+export function hashPasswordResetToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}

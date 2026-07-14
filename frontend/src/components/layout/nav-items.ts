@@ -22,7 +22,10 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["OWNER", "ACCOUNTANT"] },
   { href: "/clients", label: "Clients", icon: Users, roles: ["OWNER", "ACCOUNTANT", "MEMBER"] },
-  { href: "/invoices", label: "Invoices", icon: FileText },
+  // Not CLIENT_GUEST: that role is redirected out of this shell entirely
+  // (see AppShell) before it would ever render this nav — listed
+  // explicitly anyway so intent is clear even if that redirect changes.
+  { href: "/invoices", label: "Invoices", icon: FileText, roles: ["OWNER", "ACCOUNTANT", "MEMBER"] },
   { href: "/expenses", label: "Expenses", icon: Receipt, roles: ["OWNER", "ACCOUNTANT"] },
   { href: "/team", label: "Team", icon: UsersRound, roles: ["OWNER", "ACCOUNTANT"] },
   { href: "/activity", label: "Activity", icon: History, roles: ["OWNER", "ACCOUNTANT"] },

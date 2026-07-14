@@ -64,6 +64,17 @@ services:
       timeout: 5s
       retries: 10
 
+  # SMTP mail-catcher for dev: the API sends real SMTP messages (password
+  # reset emails) here instead of a real provider, and MailHog's web UI
+  # (port 8025) lets you read them without any inbox ever existing. Not
+  # meant for a real deployment — see DEPLOY.md.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_UI_PORT:-8025}:8025"
+
   # A plausible "legacy" internal reporting/import tool (PHP) that the main
   # API calls over the Docker network — see services/report-service/. Reads
   # Postgres directly (via the report_readonly role, SELECT-only, provisioned
@@ -127,6 +138,8 @@ services:
         condition: service_healthy
       export-worker:
         condition: service_healthy
+      mailhog:
+        condition: service_started
     environment:
       NODE_ENV: development
       PORT: 4000
@@ -141,6 +154,9 @@ services:
       REPORT_SERVICE_URL: http://report-service:80
       EXPORT_WORKER_URL: http://export-worker:8080
       INTERNAL_API_KEY: "${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in .env (openssl rand -hex 32)}"
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      MAIL_FROM: "Kontora <no-reply@kontora.test>"
     volumes:
       - api_uploads:/workspace/api/uploads
     ports:

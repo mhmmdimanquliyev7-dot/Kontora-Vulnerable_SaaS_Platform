@@ -1,5 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { Logo } from "@/components/shared/logo";
@@ -7,12 +10,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useMe } from "@/hooks/use-auth";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const { data: me, isPending, isError } = useMe();
 
-  if (isPending || isError || !me) {
+  // CLIENT_GUEST never sees the internal admin app — the backend already
+  // scopes everything it could reach here to just their own client's data,
+  // but the client portal (its own shell, see PortalShell) is the intended
+  // experience for that role, not this one.
+  useEffect(() => {
+    if (me?.role === "CLIENT_GUEST") {
+      router.replace("/portal");
+    }
+  }, [me, router]);
+
+  if (isPending || isError || !me || me.role === "CLIENT_GUEST") {
     // On error, the SessionExpiredListener (fed by apiFetch's 401 handling)
     // takes care of the redirect to /login — this just avoids a flash of
-    // empty shell while that happens.
+    // empty shell while that (or the CLIENT_GUEST redirect above) happens.
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/30">
         <div className="w-full max-w-sm space-y-3 px-6">
