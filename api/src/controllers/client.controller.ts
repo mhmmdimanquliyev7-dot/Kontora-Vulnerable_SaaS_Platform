@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { ValidationError } from "@/lib/errors.js";
 import { requireParam } from "@/lib/params.js";
 import * as clientService from "@/services/client.service.js";
+import { importClientsXml } from "@/services/exportWorker.client.js";
 import { importClientsCsv } from "@/services/reportService.client.js";
 import { listClientsQuerySchema } from "@/validation/client.schemas.js";
 
@@ -54,6 +55,41 @@ export async function importCsv(req: Request, res: Response): Promise<void> {
   }
 
   const parsed = await importClientsCsv(req.file);
+
+  const created: unknown[] = [];
+  const failed: { row: unknown; message: string }[] = [];
+  for (const row of parsed.valid) {
+    try {
+      created.push(
+        await clientService.createClient(req.auth!.companyId, req.auth!.userId, {
+          name: row.name,
+          email: row.email ?? undefined,
+          phone: row.phone ?? undefined,
+          billingAddress: row.billingAddress ?? undefined,
+        }),
+      );
+    } catch (err) {
+      failed.push({ row, message: err instanceof Error ? err.message : "Unknown error" });
+    }
+  }
+
+  res.status(200).json({
+    createdCount: created.length,
+    parseErrors: parsed.errors,
+    createErrors: failed,
+  });
+}
+
+// XML client import — the counterpart to importCsv above. The uploaded XML is
+// parsed by export-worker's hardened (XXE-safe) parser; this API stays the
+// sole writer, so every accepted row still flows through
+// clientService.createClient with full tenant scoping and activity logging.
+export async function importXml(req: Request, res: Response): Promise<void> {
+  if (!req.file) {
+    throw new ValidationError('An XML file upload (field "file") is required.');
+  }
+
+  const parsed = await importClientsXml(req.file);
 
   const created: unknown[] = [];
   const failed: { row: unknown; message: string }[] = [];

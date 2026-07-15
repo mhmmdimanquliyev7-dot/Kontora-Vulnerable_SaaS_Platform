@@ -1,8 +1,11 @@
 import {
+  BarChart3,
   Bot,
+  FileDown,
   FileText,
   History,
   LayoutDashboard,
+  Newspaper,
   Receipt,
   Settings,
   Users,
@@ -29,6 +32,9 @@ export const NAV_ITEMS: NavItem[] = [
   // explicitly anyway so intent is clear even if that redirect changes.
   { href: "/invoices", label: "Invoices", icon: FileText, roles: ["OWNER", "ACCOUNTANT", "MEMBER"] },
   { href: "/expenses", label: "Expenses", icon: Receipt, roles: ["OWNER", "ACCOUNTANT"] },
+  { href: "/documents", label: "Documents", icon: FileDown, roles: ["OWNER", "ACCOUNTANT"] },
+  { href: "/reports", label: "Reports", icon: BarChart3, roles: ["OWNER", "ACCOUNTANT"] },
+  { href: "/posts", label: "Blog", icon: Newspaper, roles: ["OWNER", "ACCOUNTANT"] },
   { href: "/assistant", label: "Assistant", icon: Bot, roles: ["OWNER", "ACCOUNTANT", "MEMBER"] },
   { href: "/team", label: "Team", icon: UsersRound, roles: ["OWNER", "ACCOUNTANT"] },
   { href: "/activity", label: "Activity", icon: History, roles: ["OWNER", "ACCOUNTANT"] },

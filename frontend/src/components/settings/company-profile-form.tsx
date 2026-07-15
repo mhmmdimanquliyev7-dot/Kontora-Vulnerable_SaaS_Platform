@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/shared/form-field";
 import { useUpdateCompany } from "@/hooks/use-company";
 import type { Company } from "@/lib/api/types";
@@ -17,6 +18,7 @@ const profileSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
   website: z.string().trim().max(2048).optional(),
   address: z.string().trim().max(500).optional(),
+  description: z.string().trim().max(2000).optional(),
 });
 
 type ProfileValues = z.infer<typeof profileSchema>;
@@ -35,11 +37,17 @@ export function CompanyProfileForm({ company, readOnly }: { company: Company; re
       name: company.name,
       website: company.website ?? "",
       address: company.address ?? "",
+      description: company.description ?? "",
     },
   });
 
   useEffect(() => {
-    reset({ name: company.name, website: company.website ?? "", address: company.address ?? "" });
+    reset({
+      name: company.name,
+      website: company.website ?? "",
+      address: company.address ?? "",
+      description: company.description ?? "",
+    });
   }, [company, reset]);
 
   async function onSubmit(values: ProfileValues) {
@@ -47,6 +55,7 @@ export function CompanyProfileForm({ company, readOnly }: { company: Company; re
       name: values.name,
       website: values.website || undefined,
       address: values.address || undefined,
+      description: values.description || undefined,
     });
   }
 
@@ -66,6 +75,19 @@ export function CompanyProfileForm({ company, readOnly }: { company: Company; re
             </FormField>
             <FormField label="Address" htmlFor="address" error={errors.address?.message}>
               <Input id="address" {...register("address")} />
+            </FormField>
+            <FormField
+              label="About / bio"
+              htmlFor="description"
+              error={errors.description?.message}
+              hint="A short description of your company. Shown on your profile and used as the author bio on blog posts."
+            >
+              <Textarea
+                id="description"
+                rows={4}
+                placeholder="Tell people what your company does…"
+                {...register("description")}
+              />
             </FormField>
             {!readOnly && (
               <div className="flex justify-end">

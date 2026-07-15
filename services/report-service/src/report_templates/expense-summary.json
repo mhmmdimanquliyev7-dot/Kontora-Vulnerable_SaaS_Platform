@@ -1,0 +1,5 @@
+{
+  "name": "expense-summary",
+  "title": "Expense summary by category",
+  "description": "Total spend and entry count grouped by expense category."
+}

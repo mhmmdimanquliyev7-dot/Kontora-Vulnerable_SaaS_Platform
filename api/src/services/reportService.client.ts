@@ -1,5 +1,5 @@
 import { env } from "@/config/env.js";
-import { UpstreamServiceError } from "@/lib/errors.js";
+import { NotFoundError, UpstreamServiceError } from "@/lib/errors.js";
 import { callInternalService, parseJsonResult } from "@/lib/internalServiceClient.js";
 
 export interface RevenueSummary {
@@ -33,6 +33,55 @@ export async function getRevenueSummary(companyId: string): Promise<RevenueSumma
     throw new UpstreamServiceError("report-service could not generate the revenue summary.");
   }
   return parseJsonResult<RevenueSummary>(result);
+}
+
+export interface NamedReportDefinition {
+  name: string;
+  title: string;
+  description: string;
+}
+
+export interface NamedReport {
+  name: string;
+  title: string;
+  description: string;
+  generatedAt: string;
+  columns: string[];
+  rows: Record<string, string | number | null>[];
+}
+
+// Lists the report templates report-service is willing to run. The set is
+// defined and allowlisted on the report-service side; the API just surfaces
+// it, so the frontend can render a picker without hardcoding the catalog.
+export async function listNamedReports(): Promise<{ reports: NamedReportDefinition[] }> {
+  const result = await callInternalService(env.REPORT_SERVICE_URL, {
+    method: "GET",
+    path: "/reports/available",
+  });
+  if (result.status !== 200) {
+    throw new UpstreamServiceError("report-service could not list reports.");
+  }
+  return parseJsonResult<{ reports: NamedReportDefinition[] }>(result);
+}
+
+// Runs a named report. `reportName` is validated on THIS side (zod enum-free
+// allowlist regex, see report.schemas.ts) AND again on the report-service
+// side (allowlist + realpath containment) — the identifier never becomes a
+// filesystem path without passing both gates. A 404 from report-service means
+// the name isn't a known report; surface it as-is rather than a generic 502.
+export async function getNamedReport(companyId: string, reportName: string): Promise<NamedReport> {
+  const result = await callInternalService(env.REPORT_SERVICE_URL, {
+    method: "POST",
+    path: "/reports/named",
+    body: { companyId, reportName },
+  });
+  if (result.status === 404) {
+    throw new NotFoundError("Unknown report.");
+  }
+  if (result.status !== 200) {
+    throw new UpstreamServiceError("report-service could not generate the report.");
+  }
+  return parseJsonResult<NamedReport>(result);
 }
 
 export interface ParsedClientRow {

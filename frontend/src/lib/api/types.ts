@@ -15,6 +15,7 @@ export interface Company {
   slug: string;
   website: string | null;
   address: string | null;
+  description: string | null;
   logoUrl: string | null;
   createdAt: string;
   updatedAt: string;
@@ -161,4 +162,77 @@ export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+}
+
+export type BlogPostStatus = "DRAFT" | "PUBLISHED";
+
+// Admin-side shape (raw markdown `body`, tenant-scoped).
+export interface BlogPost {
+  id: string;
+  companyId: string;
+  authorId: string | null;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  body: string;
+  coverImageUrl: string | null;
+  status: BlogPostStatus;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  author?: { name: string } | null;
+}
+
+// Public list item — no body, no ids.
+export interface BlogPostSummary {
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  coverImageUrl: string | null;
+  publishedAt: string | null;
+  companyName: string;
+  authorName: string | null;
+}
+
+// Public detail — `bodyHtml` is already rendered + sanitized by the API and is
+// safe to inject directly; the frontend must NOT re-render markdown itself.
+export interface BlogPostDetail extends BlogPostSummary {
+  bodyHtml: string;
+  companyDescription: string | null;
+}
+
+export interface InvoiceAttachment {
+  id: string;
+  invoiceId: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+  uploader?: { id: string; name: string } | null;
+}
+
+export interface NamedReportDefinition {
+  name: string;
+  title: string;
+  description: string;
+}
+
+export interface NamedReport {
+  name: string;
+  title: string;
+  description: string;
+  generatedAt: string;
+  columns: string[];
+  rows: Record<string, string | number | null>[];
+}
+
+export type StatementTemplate = "standard" | "detailed";
+
+export interface StatementInput {
+  clientId: string;
+  from: string;
+  to: string;
+  template: StatementTemplate;
+  includePaid: boolean;
+  introText?: string;
 }

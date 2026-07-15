@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   "/features",
   "/pricing",
   "/about",
+  "/blog",
 ];
 
 function isPublicPath(pathname: string): boolean {

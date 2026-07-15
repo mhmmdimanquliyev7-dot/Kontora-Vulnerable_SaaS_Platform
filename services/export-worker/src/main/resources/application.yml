@@ -13,6 +13,13 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  servlet:
+    multipart:
+      # The API caps XML import uploads at 5MB (see uploadXml in the API's
+      # multer config); allow a little headroom here so a legitimately-sized
+      # file isn't rejected by Spring's 1MB default before our own parser runs.
+      max-file-size: 6MB
+      max-request-size: 6MB
 
 kontora:
   internal-api-key: ${INTERNAL_API_KEY:}

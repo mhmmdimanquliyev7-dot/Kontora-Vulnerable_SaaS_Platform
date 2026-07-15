@@ -152,3 +152,58 @@
     @apply bg-primary/20;
   }
 }
+
+/* Blog post body. The HTML this styles comes pre-sanitized from the API
+   (api/src/lib/markdown.ts) — this block is purely presentational. */
+.kontora-prose {
+  @apply text-base/7 text-foreground;
+}
+.kontora-prose > * + * {
+  @apply mt-5;
+}
+.kontora-prose h1,
+.kontora-prose h2,
+.kontora-prose h3,
+.kontora-prose h4 {
+  @apply font-heading font-semibold tracking-tight;
+}
+.kontora-prose h1 {
+  @apply mt-10 text-3xl;
+}
+.kontora-prose h2 {
+  @apply mt-10 text-2xl;
+}
+.kontora-prose h3 {
+  @apply mt-8 text-xl;
+}
+.kontora-prose a {
+  @apply font-medium text-primary underline underline-offset-4;
+}
+.kontora-prose ul {
+  @apply list-disc space-y-2 pl-6;
+}
+.kontora-prose ol {
+  @apply list-decimal space-y-2 pl-6;
+}
+.kontora-prose blockquote {
+  @apply border-l-2 border-primary/40 pl-4 text-muted-foreground italic;
+}
+.kontora-prose code {
+  @apply rounded bg-muted px-1.5 py-0.5 font-mono text-sm;
+}
+.kontora-prose pre {
+  @apply overflow-x-auto rounded-lg bg-muted p-4 text-sm;
+}
+.kontora-prose pre code {
+  @apply bg-transparent p-0;
+}
+.kontora-prose img {
+  @apply rounded-xl border;
+}
+.kontora-prose table {
+  @apply w-full border-collapse text-sm;
+}
+.kontora-prose th,
+.kontora-prose td {
+  @apply border px-3 py-2 text-left;
+}

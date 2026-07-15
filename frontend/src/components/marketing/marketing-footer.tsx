@@ -7,7 +7,10 @@ const FOOTER_LINKS = {
     { href: "/features", label: "Features" },
     { href: "/pricing", label: "Pricing" },
   ],
-  Company: [{ href: "/about", label: "About" }],
+  Company: [
+    { href: "/about", label: "About" },
+    { href: "/blog", label: "Blog" },
+  ],
   Account: [
     { href: "/login", label: "Log in" },
     { href: "/register", label: "Sign up" },

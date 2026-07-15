@@ -18,6 +18,7 @@ export interface CompanyProfileInput {
   name?: string;
   website?: string;
   address?: string;
+  description?: string;
 }
 
 export async function updateCompanyProfile(

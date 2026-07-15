@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClientFormDialog } from "@/components/clients/client-form-dialog";
+import { ImportXmlButton } from "@/components/clients/import-xml-button";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -71,10 +72,13 @@ export default function ClientsPage() {
         title="Clients"
         description="The people and companies you bill."
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="size-4" />
-            New client
-          </Button>
+          <>
+            <ImportXmlButton />
+            <Button onClick={openCreate}>
+              <Plus className="size-4" />
+              New client
+            </Button>
+          </>
         }
       />
 
@@ -109,7 +113,14 @@ export default function ClientsPage() {
             <TableBody>
               {clients.data.map((client) => (
                 <TableRow key={client.id}>
-                  <TableCell className="font-medium">{client.name}</TableCell>
+                  <TableCell className="font-medium">
+                    {client.name}
+                    {client.notes && (
+                      <p className="max-w-xs truncate text-xs font-normal text-muted-foreground">
+                        {client.notes}
+                      </p>
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{client.email ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{client.phone ?? "—"}</TableCell>
                   <TableCell className="max-w-56 truncate text-muted-foreground">

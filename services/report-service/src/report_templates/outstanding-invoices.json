@@ -1,0 +1,5 @@
+{
+  "name": "outstanding-invoices",
+  "title": "Outstanding invoices",
+  "description": "Every sent or overdue invoice still awaiting payment, ordered by due date."
+}

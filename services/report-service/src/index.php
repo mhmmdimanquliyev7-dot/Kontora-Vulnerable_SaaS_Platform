@@ -9,6 +9,7 @@ declare(strict_types=1);
 require __DIR__ . '/lib.php';
 require __DIR__ . '/db.php';
 require __DIR__ . '/reports.php';
+require __DIR__ . '/named_reports.php';
 require __DIR__ . '/csv_import.php';
 
 header('Content-Type: application/json');
@@ -29,6 +30,19 @@ try {
         $body = read_json_body();
         $companyId = require_string_field($body, 'companyId');
         json_response(200, build_revenue_summary(get_db(), $companyId));
+    }
+
+    if ($method === 'GET' && $path === '/reports/available') {
+        require_internal_api_key();
+        json_response(200, list_available_reports());
+    }
+
+    if ($method === 'POST' && $path === '/reports/named') {
+        require_internal_api_key();
+        $body = read_json_body();
+        $companyId = require_string_field($body, 'companyId');
+        $reportName = require_string_field($body, 'reportName');
+        json_response(200, run_named_report(get_db(), $companyId, $reportName));
     }
 
     if ($method === 'POST' && $path === '/import/clients') {

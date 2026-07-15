@@ -159,6 +159,11 @@ services:
       MAIL_FROM: "Kontora <no-reply@kontora.test>"
     volumes:
       - api_uploads:/workspace/api/uploads
+      # Private file storage (invoice attachments) — deliberately a separate
+      # volume from api_uploads because, unlike uploads, nothing here is served
+      # by the static mount; it's only ever read back through the authenticated
+      # download controller.
+      - api_storage:/workspace/api/storage
     ports:
       - "${API_PORT:-4000}:4000"
     healthcheck:
@@ -219,3 +224,4 @@ volumes:
   redis_data:
   mongo_data:
   api_uploads:
+  api_storage:

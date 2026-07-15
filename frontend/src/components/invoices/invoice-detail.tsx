@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { InvoiceAttachments } from "@/components/invoices/invoice-attachments";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -228,6 +229,8 @@ export function InvoiceDetail({ id }: { id: string }) {
           </CardContent>
         </Card>
       </div>
+
+      <InvoiceAttachments invoiceId={id} />
 
       <ConfirmDialog
         open={deleteOpen}

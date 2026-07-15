@@ -39,3 +39,20 @@ export async function updateClient(id: string, input: Partial<ClientInput>): Pro
 export function deleteClient(id: string): Promise<void> {
   return apiFetch(`/api/clients/${id}`, { method: "DELETE" });
 }
+
+export interface ClientImportResult {
+  createdCount: number;
+  parseErrors: { index?: number; line?: number; message: string }[];
+  createErrors: { row: unknown; message: string }[];
+}
+
+// Uploads an XML file of clients to the API, which forwards it to
+// export-worker's hardened parser and then writes the accepted rows.
+export async function importClientsXml(file: File): Promise<ClientImportResult> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiFetch<ClientImportResult>("/api/clients/import-xml", {
+    method: "POST",
+    body: form,
+  });
+}

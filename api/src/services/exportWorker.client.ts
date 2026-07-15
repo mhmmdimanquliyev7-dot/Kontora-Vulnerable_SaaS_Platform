@@ -1,6 +1,6 @@
 import { env } from "@/config/env.js";
-import { UpstreamServiceError } from "@/lib/errors.js";
-import { callInternalService } from "@/lib/internalServiceClient.js";
+import { UpstreamServiceError, ValidationError } from "@/lib/errors.js";
+import { callInternalService, parseJsonResult } from "@/lib/internalServiceClient.js";
 import type { Company, Client, Invoice, InvoiceItem } from "@kontora/db";
 
 export type InvoiceForExport = Invoice & { client: Client; items: InvoiceItem[] };
@@ -65,4 +65,51 @@ export async function exportInvoices(
     buffer: result.buffer,
     contentType: result.headers.get("content-type") ?? (format === "xml" ? "application/xml" : "application/pdf"),
   };
+}
+
+export interface ParsedClientRow {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  billingAddress: string | null;
+}
+
+export interface XmlImportResult {
+  valid: ParsedClientRow[];
+  errors: { index: number; message: string }[];
+  parsedCount: number;
+  errorCount: number;
+}
+
+// Forwards an uploaded XML file to export-worker for parsing. export-worker
+// parses it with a hardened, XXE-safe parser (no DTDs, no external entities —
+// see XmlImportService.java) and returns parsed/validated client rows. Parse
+// only: exactly like the CSV import path, the API remains the sole writer, so
+// tenant scoping and activity logging still apply to every row it accepts.
+export async function importClientsXml(file: {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+}): Promise<XmlImportResult> {
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([new Uint8Array(file.buffer)], { type: file.mimetype || "application/xml" }),
+    file.originalname,
+  );
+
+  const result = await callInternalService(env.EXPORT_WORKER_URL, {
+    method: "POST",
+    path: "/import/xml",
+    body: form,
+    isFormData: true,
+  });
+
+  if (result.status === 422 || result.status === 400) {
+    throw new ValidationError("The uploaded file could not be parsed as valid import XML.");
+  }
+  if (result.status !== 200) {
+    throw new UpstreamServiceError("export-worker could not process the uploaded file.");
+  }
+  return parseJsonResult<XmlImportResult>(result);
 }

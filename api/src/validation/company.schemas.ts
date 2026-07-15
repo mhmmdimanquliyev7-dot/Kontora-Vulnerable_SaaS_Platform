@@ -6,4 +6,7 @@ export const updateCompanySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200).optional(),
   website: optionalUrl,
   address: z.string().trim().max(500).optional(),
+  // Free-text company bio. Rendered as escaped text everywhere (never HTML),
+  // so no sanitization is required on this field.
+  description: z.string().trim().max(2000).optional(),
 });

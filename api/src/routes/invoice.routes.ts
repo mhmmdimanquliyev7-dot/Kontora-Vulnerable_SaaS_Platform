@@ -1,8 +1,10 @@
 import { Router } from "express";
 
+import * as attachmentController from "@/controllers/attachment.controller.js";
 import * as invoiceController from "@/controllers/invoice.controller.js";
 import * as invoiceCommentController from "@/controllers/invoiceComment.controller.js";
 import { requireRole } from "@/middleware/requireRole.js";
+import { uploadAttachment } from "@/middleware/upload.js";
 import { validateBody } from "@/middleware/validate.js";
 import { Role } from "@kontora/db";
 import {
@@ -60,3 +62,17 @@ invoiceRouter.post(
   invoiceCommentController.create,
 );
 invoiceRouter.delete("/:id/comments/:commentId", canWrite, invoiceCommentController.remove);
+
+// Attachments (receipts/supporting documents). Scoped to the same team roles
+// as comments and deliberately excluded for CLIENT_GUEST: these are internal
+// supporting files, not part of the client-facing invoice view. Files are
+// stored privately (never under the public /uploads mount) and streamed back
+// only through the tenant-scoped download route below.
+invoiceRouter.get("/:id/attachments", canWrite, attachmentController.list);
+invoiceRouter.post("/:id/attachments", canWrite, uploadAttachment, attachmentController.upload);
+invoiceRouter.get(
+  "/:id/attachments/:attachmentId/download",
+  canWrite,
+  attachmentController.download,
+);
+invoiceRouter.delete("/:id/attachments/:attachmentId", canWrite, attachmentController.remove);

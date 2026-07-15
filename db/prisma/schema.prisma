@@ -33,12 +33,22 @@ enum InvoiceStatus {
   VOID
 }
 
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+}
+
 model Company {
   id        String   @id @default(uuid())
   name      String
   slug      String   @unique
   website   String?
   address   String?
+  // Free-text company bio/description. Rendered as plain (React-escaped) text
+  // in the app and marketing site — never as HTML — so it carries no XSS
+  // surface, unlike BlogPost.body (which is markdown rendered to sanitized
+  // HTML; see api/src/lib/markdown.ts).
+  description String?
   logoUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -50,6 +60,8 @@ model Company {
   sessions     Session[]
   activityLogs ActivityLog[]
   webhooks     Webhook[]
+  blogPosts    BlogPost[]
+  attachments  InvoiceAttachment[]
 
   @@map("companies")
 }
@@ -70,6 +82,8 @@ model User {
   createdExpenses     Expense[]           @relation("ExpenseCreatedBy")
   activityLogs        ActivityLog[]
   passwordResetTokens PasswordResetToken[]
+  blogPosts           BlogPost[]          @relation("BlogAuthor")
+  uploadedAttachments InvoiceAttachment[] @relation("AttachmentUploader")
 
   @@map("users")
 }
@@ -137,9 +151,10 @@ model Invoice {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   // Restrict, not Cascade: a client record is disposable, invoice/revenue
   // history is not — deleting a client must not silently delete invoices.
-  client    Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  createdBy User?  @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  items     InvoiceItem[]
+  client      Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  createdBy   User?               @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  items       InvoiceItem[]
+  attachments InvoiceAttachment[]
 
   @@unique([companyId, number])
   @@index([companyId])
@@ -265,6 +280,61 @@ model WebhookDelivery {
 
   @@index([webhookId, createdAt])
   @@map("webhook_deliveries")
+}
+
+// A company blog post. `body` is authored as Markdown and stored verbatim;
+// it is NEVER rendered raw. The public read path renders it to HTML through
+// api/src/lib/markdown.ts (marked + a strict sanitize-html allowlist) so a
+// post body can't inject script/style/event-handler content onto the public
+// marketing site. `slug` is globally unique because the public URL
+// (/blog/[slug]) carries no company segment; the service appends a short
+// random suffix on collision so one tenant can't squat another's slug.
+model BlogPost {
+  id            String         @id @default(uuid())
+  companyId     String
+  authorId      String?
+  title         String
+  slug          String         @unique
+  excerpt       String?
+  body          String
+  coverImageUrl String?
+  status        BlogPostStatus @default(DRAFT)
+  publishedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  author  User?   @relation("BlogAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([status, publishedAt])
+  @@map("blog_posts")
+}
+
+// A file attached to an invoice (receipt, supporting document). Stored on
+// disk OUTSIDE the publicly-served /uploads mount (see ATTACHMENTS_DIR in
+// api/src/lib/uploads.ts) under a server-generated `storedName` — the
+// client-supplied `filename` is display-only and never touches the
+// filesystem path, so there is no path-traversal surface. Downloads go
+// through an authenticated, tenant-scoped controller, never a static mount.
+model InvoiceAttachment {
+  id         String   @id @default(uuid())
+  invoiceId  String
+  companyId  String
+  uploaderId String?
+  filename   String
+  storedName String
+  mimeType   String
+  sizeBytes  Int
+  createdAt  DateTime @default(now())
+
+  invoice  Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  company  Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploader User?   @relation("AttachmentUploader", fields: [uploaderId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([companyId])
+  @@map("invoice_attachments")
 }
 
 // Append-only audit trail of tenant-scoped mutations (invoice.created,
