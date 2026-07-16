@@ -6,7 +6,8 @@
   "workspaces": [
     "frontend",
     "api",
-    "db"
+    "db",
+    "services/oauth-provider"
   ],
   "scripts": {
     "dev:api": "npm run dev --workspace=api",

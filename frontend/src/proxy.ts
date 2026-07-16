@@ -38,7 +38,13 @@ export function proxy(request: NextRequest) {
   const hasSession = request.cookies.has("kontora_at") || request.cookies.has("kontora_rt");
   if (!hasSession) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("from", pathname);
+    // Where to send them once they've signed in. Only the path+query is
+    // carried, never an absolute URL, and the login page re-validates it with
+    // sanitizeReturnPath before acting on it — this value reaches the login
+    // page through the address bar, so it is untrusted by the time it's read
+    // back even though we wrote it ourselves.
+    const returnUrl = `${pathname}${request.nextUrl.search}`;
+    loginUrl.searchParams.set("returnUrl", returnUrl);
     return NextResponse.redirect(loginUrl);
   }
 

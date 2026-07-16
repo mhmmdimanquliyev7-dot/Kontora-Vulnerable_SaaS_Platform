@@ -40,6 +40,21 @@ const envSchema = z.object({
   INTERNAL_API_KEY: z
     .string()
     .min(32, "INTERNAL_API_KEY must be at least 32 characters — generate one with `openssl rand -hex 32`"),
+
+  // "Kontora ID" — the mock OAuth provider (services/oauth-provider). Two
+  // URLs for one service: PUBLIC is where the browser gets redirected for the
+  // front-channel /authorize step, INTERNAL is the Docker-network address used
+  // for the back-channel /token and /userinfo calls. They differ because the
+  // browser can't resolve Docker service names.
+  OAUTH_ISSUER_PUBLIC_URL: z.string().min(1, "OAUTH_ISSUER_PUBLIC_URL is required"),
+  OAUTH_ISSUER_INTERNAL_URL: z.string().min(1, "OAUTH_ISSUER_INTERNAL_URL is required"),
+  OAUTH_CLIENT_ID: z.string().min(1, "OAUTH_CLIENT_ID is required"),
+  OAUTH_CLIENT_SECRET: z
+    .string()
+    .min(32, "OAUTH_CLIENT_SECRET must be at least 32 characters — generate one with `openssl rand -hex 32`"),
+  // Must byte-for-byte match a redirect_uri registered at the provider; it is
+  // sent on both the authorize and token calls and compared on both sides.
+  OAUTH_CALLBACK_URL: z.string().min(1, "OAUTH_CALLBACK_URL is required"),
 });
 
 const parsed = envSchema.safeParse(process.env);

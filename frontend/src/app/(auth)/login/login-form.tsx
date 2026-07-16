@@ -13,9 +13,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/shared/form-field";
+import { KontoraIdButton } from "@/components/auth/kontora-id-button";
 import { useLogin, useSelectCompany } from "@/hooks/use-auth";
 import { ApiError } from "@/lib/api/client";
+import { resolveLanding, sanitizeReturnPath } from "@/lib/safe-redirect";
 import type { CompanyMembership } from "@/lib/api/types";
+
+// Errors the OAuth callback can bounce back to /login?error=... Mapped to
+// copy here rather than letting the API put a message in the URL — a
+// user-controlled error string in the address bar is its own small XSS/phishing
+// surface, so the API only ever sends a known code.
+const OAUTH_ERRORS: Record<string, string> = {
+  oauth_denied: "Kontora ID sign-in was cancelled.",
+  oauth_email_unverified:
+    "That Kontora ID account's email address isn't verified, so we can't sign you in with it.",
+};
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address"),
@@ -28,6 +40,15 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const expired = searchParams.get("reason") === "expired";
+  const oauthError = OAUTH_ERRORS[searchParams.get("error") ?? ""];
+
+  // Accept any of the three spellings: `returnUrl`/`next` are what a caller
+  // would hand-write, `from` is what the proxy sets when it bounces an
+  // unauthenticated visitor off a protected route. All three are untrusted and
+  // go through sanitizeReturnPath before they're used for anything.
+  const returnUrl = sanitizeReturnPath(
+    searchParams.get("returnUrl") ?? searchParams.get("next") ?? searchParams.get("from"),
+  );
 
   const [companyChoice, setCompanyChoice] = useState<{
     loginToken: string;
@@ -50,10 +71,10 @@ export function LoginForm() {
         setCompanyChoice({ loginToken: result.loginToken, companies: result.companies });
         return;
       }
-      // CLIENT_GUEST never sees the internal admin app — the client portal
-      // (its own route group/shell, see frontend/src/app/(portal)/) is the
-      // only thing that role ever lands in.
-      router.push(result.role === "CLIENT_GUEST" ? "/portal" : "/dashboard");
+      // resolveLanding keeps the two invariants together: a CLIENT_GUEST only
+      // ever lands in the portal, and a returnUrl is only honoured if it's a
+      // safe same-origin path that suits the role.
+      router.push(resolveLanding(result.role, returnUrl));
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Something went wrong");
     }
@@ -66,7 +87,7 @@ export function LoginForm() {
         loginToken: companyChoice.loginToken,
         companyId,
       });
-      router.push(result.role === "CLIENT_GUEST" ? "/portal" : "/dashboard");
+      router.push(resolveLanding(result.role, returnUrl));
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Something went wrong");
     }
@@ -123,6 +144,20 @@ export function LoginForm() {
             Your session expired. Please log in again.
           </p>
         )}
+        {oauthError && (
+          <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {oauthError}
+          </p>
+        )}
+
+        <KontoraIdButton returnUrl={returnUrl} />
+
+        <div className="my-4 flex items-center gap-3">
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground">or continue with email</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <FormField label="Email" htmlFor="email" error={errors.email?.message} required>
             <Input id="email" type="email" autoComplete="email" {...register("email")} />

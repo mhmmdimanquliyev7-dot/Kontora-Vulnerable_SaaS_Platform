@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import * as authController from "@/controllers/auth.controller.js";
+import * as oauthController from "@/controllers/oauth.controller.js";
 import { authRateLimiter } from "@/middleware/rateLimit.js";
 import { requireAuth } from "@/middleware/requireAuth.js";
 import { validateBody } from "@/middleware/validate.js";
@@ -40,6 +41,13 @@ authRouter.post(
   validateBody(selectCompanySchema),
   authController.selectCompany,
 );
+// "Sign in with Kontora ID" (OAuth 2.0 authorization-code + PKCE). Both legs
+// are browser redirects, not XHR, so they're GETs. Rate-limited like the rest
+// of the sign-in surface: /start mints Redis state, /callback does a token
+// exchange — neither should be free to hammer.
+authRouter.get("/oauth/start", authRateLimiter, oauthController.start);
+authRouter.get("/oauth/callback", authRateLimiter, oauthController.callback);
+
 authRouter.post("/refresh", authController.refresh);
 authRouter.post("/logout", authController.logout);
 authRouter.post("/logout-all", requireAuth, authController.logoutAll);

@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import slugify from "slugify";
 
 import { env } from "@/config/env.js";
@@ -154,6 +156,79 @@ export async function login(
     status: "company_selection_required",
     loginToken,
     companies: memberships.map((m) => ({ id: m.company.id, name: m.company.name, role: m.role })),
+  };
+}
+
+// Signs in (or just-in-time provisions) a user whose email an external identity
+// provider has already VERIFIED. The caller must not reach here on an
+// unverified email — see oauth.controller.ts, which enforces that — because
+// linking by unverified email would let anyone who can create an account at the
+// IdP claiming victim@example.com take over the matching Kontora account.
+//
+// Provisioning mirrors register(): a brand-new user gets their own company and
+// is its OWNER. The stored passwordHash is a hash of random bytes, i.e. an
+// unusable password: the account is IdP-only until the user sets a password via
+// the normal forgot-password flow.
+//
+// If the user belongs to more than one company, we sign them into their
+// earliest membership rather than blocking on a chooser — the topbar's
+// workspace switcher (switchCompany) is the supported way to move between them,
+// and it re-issues the session with the correct per-company role.
+export async function loginWithVerifiedEmail(
+  profile: { email: string; name: string },
+  meta: RequestMeta,
+): Promise<{
+  tokens: AuthTokens;
+  user: PublicUser;
+  company: Company;
+  role: Role;
+  provisioned: boolean;
+}> {
+  const email = profile.email.trim().toLowerCase();
+  let user = await prisma.user.findUnique({ where: { email } });
+  let provisioned = false;
+
+  if (!user) {
+    const slug = await generateUniqueSlug(`${profile.name} Workspace`);
+    const unusablePasswordHash = await hashPassword(randomBytes(32).toString("base64url"));
+
+    const created = await prisma.$transaction(async (tx) => {
+      const company = await tx.company.create({
+        data: { name: `${profile.name}'s Workspace`, slug },
+      });
+      const newUser = await tx.user.create({
+        data: { email, name: profile.name, passwordHash: unusablePasswordHash },
+      });
+      await tx.teamMembership.create({
+        data: { userId: newUser.id, companyId: company.id, role: Role.OWNER },
+      });
+      return newUser;
+    });
+    user = created;
+    provisioned = true;
+  }
+
+  const memberships = await prisma.teamMembership.findMany({
+    where: { userId: user.id },
+    include: { company: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const membership = memberships[0];
+  if (!membership) {
+    // A user with no memberships can't act in any tenant — same as password
+    // login, this is indistinguishable from "no account" to the caller.
+    throw new UnauthorizedError("This account has no workspace access.");
+  }
+
+  const { session, refreshToken } = await createSession(user.id, membership.companyId, meta);
+  const accessToken = issueAccessToken(session, membership.role);
+
+  return {
+    tokens: { accessToken, refreshToken },
+    user: sanitizeUser(user),
+    company: membership.company,
+    role: membership.role,
+    provisioned,
   };
 }
 

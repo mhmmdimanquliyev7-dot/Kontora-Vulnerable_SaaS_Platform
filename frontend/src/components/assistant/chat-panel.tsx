@@ -1,16 +1,15 @@
 "use client";
 
-import { Bot, Send, User } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Bot, RefreshCw, Send, User, Wifi, WifiOff } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useSendMessage } from "@/hooks/use-assistant";
+import { useAssistantSocket } from "@/hooks/use-assistant-socket";
 import { useMe } from "@/hooks/use-auth";
-import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/api/types";
 
@@ -20,17 +19,6 @@ const STARTER_PROMPTS = [
   "Any overdue invoices?",
   "What's my total revenue?",
 ];
-
-function randomDelayMs(): number {
-  // Purely a UX pacing detail — the reply is already computed by the time
-  // this runs; this just avoids it appearing so instantly that the "typing"
-  // indicator never has a chance to read as genuine.
-  return 500 + Math.random() * 900;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function TypingIndicator() {
   return (
@@ -76,38 +64,78 @@ function Bubble({ message }: { message: ChatMessage }) {
 
 export function ChatPanel() {
   const { data: me } = useMe();
-  const sendMessage = useSendMessage();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const handleReply = useCallback((content: string) => {
+    setTyping(false);
+    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", content }]);
+  }, []);
+
+  const handleError = useCallback((message: string) => {
+    setTyping(false);
+    toast.error(message);
+  }, []);
+
+  const handleTyping = useCallback(() => setTyping(true), []);
+
+  const { status, send, reconnect } = useAssistantSocket({
+    onReply: handleReply,
+    onError: handleError,
+    onTyping: handleTyping,
+  });
+
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  async function submit(text: string) {
+  function submit(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || sendMessage.isPending || typing) return;
+    if (!trimmed || typing || status !== "open") return;
 
-    const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: trimmed };
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", content: trimmed }]);
     setInput("");
-    setTyping(true);
 
-    try {
-      const [reply] = await Promise.all([sendMessage.mutateAsync(trimmed), sleep(randomDelayMs())]);
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", content: reply }]);
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong");
-    } finally {
-      setTyping(false);
+    // The server echoes a "typing" event and then the reply; if the socket
+    // dropped between render and send, surface it rather than silently losing
+    // the message.
+    if (!send(trimmed)) {
+      toast.error("Not connected — try reconnecting.");
     }
   }
 
   return (
     <Card className="flex h-[calc(100vh-10rem)] flex-col overflow-hidden p-0">
+      <div className="flex items-center justify-between border-b px-4 py-2">
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {status === "open" ? (
+            <>
+              <Wifi className="size-3.5 text-status-good" />
+              Connected — live
+            </>
+          ) : status === "connecting" ? (
+            <>
+              <Wifi className="size-3.5 animate-pulse" />
+              Connecting…
+            </>
+          ) : (
+            <>
+              <WifiOff className="size-3.5 text-status-critical" />
+              Disconnected
+            </>
+          )}
+        </span>
+        {status === "closed" && (
+          <Button variant="ghost" size="sm" onClick={reconnect}>
+            <RefreshCw className="size-3.5" />
+            Reconnect
+          </Button>
+        )}
+      </div>
+
       <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
@@ -167,11 +195,14 @@ export function ChatPanel() {
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask a question about your data…"
-          disabled={sendMessage.isPending || typing}
+          placeholder={
+            status === "open" ? "Ask a question about your data…" : "Connecting to the assistant…"
+          }
+          disabled={typing || status !== "open"}
+          maxLength={1000}
           autoComplete="off"
         />
-        <Button type="submit" size="icon" disabled={!input.trim() || sendMessage.isPending || typing}>
+        <Button type="submit" size="icon" disabled={!input.trim() || typing || status !== "open"}>
           <Send className="size-4" />
           <span className="sr-only">Send</span>
         </Button>

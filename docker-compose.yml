@@ -122,6 +122,38 @@ services:
       retries: 15
       start_period: 30s
 
+  # "Kontora ID" — a self-contained mock OAuth 2.0 authorization server (see
+  # services/oauth-provider/). Unlike report-service/export-worker this one is
+  # NOT internal-only: an authorization-code flow redirects the user's actual
+  # browser to /authorize, so it must be reachable from the host. The API also
+  # talks to it back-channel (/token, /userinfo) over the Docker network —
+  # hence the two URLs the api service is given below.
+  oauth-provider:
+    build:
+      context: .
+      dockerfile: services/oauth-provider/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 9000
+      OAUTH_CLIENT_ID: kontora-app
+      OAUTH_CLIENT_SECRET: "${OAUTH_CLIENT_SECRET:?Set OAUTH_CLIENT_SECRET in .env (openssl rand -hex 32)}"
+      # Exact-match allowlist. The API's callback is the only registered URI.
+      OAUTH_REDIRECT_URIS: "${OAUTH_REDIRECT_URIS:-http://localhost:4000/api/auth/oauth/callback}"
+    ports:
+      - "${OAUTH_PROVIDER_PORT:-9000}:9000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:9000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   api:
     build:
       context: .
@@ -137,6 +169,8 @@ services:
       report-service:
         condition: service_healthy
       export-worker:
+        condition: service_healthy
+      oauth-provider:
         condition: service_healthy
       mailhog:
         condition: service_started
@@ -157,6 +191,14 @@ services:
       SMTP_HOST: mailhog
       SMTP_PORT: 1025
       MAIL_FROM: "Kontora <no-reply@kontora.test>"
+      # Two URLs for the same provider, on purpose: PUBLIC is what the user's
+      # browser is redirected to, INTERNAL is the Docker-network address the
+      # API uses for the back-channel /token and /userinfo calls.
+      OAUTH_ISSUER_PUBLIC_URL: "${OAUTH_ISSUER_PUBLIC_URL:-http://localhost:9000}"
+      OAUTH_ISSUER_INTERNAL_URL: http://oauth-provider:9000
+      OAUTH_CLIENT_ID: kontora-app
+      OAUTH_CLIENT_SECRET: "${OAUTH_CLIENT_SECRET:?Set OAUTH_CLIENT_SECRET in .env (openssl rand -hex 32)}"
+      OAUTH_CALLBACK_URL: "${OAUTH_CALLBACK_URL:-http://localhost:4000/api/auth/oauth/callback}"
     volumes:
       - api_uploads:/workspace/api/uploads
       # Private file storage (invoice attachments) — deliberately a separate
