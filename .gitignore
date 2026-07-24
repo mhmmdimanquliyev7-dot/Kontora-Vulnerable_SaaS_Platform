@@ -31,6 +31,10 @@ Thumbs.db
 !.vscode/extensions.json
 .idea/
 
+# Private per-variant exploit write-ups (the answer key). Must NEVER be
+# committed/pushed or served — see solutions/README.md.
+/solutions/
+
 # Testing / coverage
 coverage/
 

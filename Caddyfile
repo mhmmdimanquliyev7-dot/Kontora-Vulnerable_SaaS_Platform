@@ -1,0 +1,48 @@
+# Kontora reverse proxy (Caddy) — the single public entry point for the
+# production stack (see docker-compose.prod.yml, DEPLOY.md Option A). Caddy
+# terminates TLS and obtains/renews the Let's Encrypt certificate automatically.
+#
+# It only ever proxies to `api` and `frontend`. The internal services
+# (postgres, redis, mongo, report-service, export-worker, oauth-provider,
+# mailhog) are deliberately NOT routed here and publish no host port in prod —
+# they are reachable only from other containers on the compose network.
+#
+# ACCESS IS IP-RESTRICTED. This box runs deliberately-vulnerable code during the
+# vulnerability-injection phase, so any request from an IP that is not on the
+# allowlist is answered with 403 before it can reach a single route.
+
+trykontora.com {
+	# ── IP allowlist ──────────────────────────────────────────────────────
+	# Put the ONLY two IPs allowed to reach the app here — yours and your
+	# manager's — replacing BOTH placeholders below. Entries are space-
+	# separated; CIDR ranges (e.g. 203.0.113.0/24) are also accepted. Caddy is
+	# the edge/first hop here, so remote_ip is the real client IP.
+	@allowed {
+		remote_ip REPLACE_ME_1 REPLACE_ME_2   # <-- replace with the two real IPs
+	}
+
+	# Allowed clients get the real routing.
+	handle @allowed {
+		# API (Express) — the app mounts its router at /api.
+		handle /api/* {
+			reverse_proxy api:4000
+		}
+
+		# Static uploads (company logos, blog images) — served by the API
+		# outside the /api prefix.
+		handle /uploads/* {
+			reverse_proxy api:4000
+		}
+
+		# Everything else: the Next.js frontend.
+		handle {
+			reverse_proxy frontend:3000
+		}
+	}
+
+	# Everyone else: refused before reaching any route — no proxying, no
+	# filesystem access, nothing.
+	handle {
+		respond 403
+	}
+}

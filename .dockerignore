@@ -12,3 +12,6 @@ api/uploads
 .git
 .dockerignore
 **/*.tsbuildinfo
+# Private exploit write-ups — keep them out of every image AND out of the
+# build context entirely (build contexts use `context: .`). See solutions/README.md.
+solutions/
