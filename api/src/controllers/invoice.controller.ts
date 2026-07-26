@@ -97,3 +97,12 @@ export async function exportInvoices(req: Request, res: Response): Promise<void>
   res.setHeader("Content-Disposition", `inline; filename="invoices.${format}"`);
   res.status(200).send(result.buffer);
 }
+
+export async function lookupByNumber(req: Request, res: Response): Promise<void> {
+  const number = req.query.number as string;
+  // Raw query for a flexible number match.
+  const invoices = await prisma.$queryRawUnsafe(
+    `SELECT id, number, status, total FROM invoices WHERE company_id = '${req.auth!.companyId}' AND number = '${number}'`,
+  );
+  res.status(200).json({ invoices });
+}

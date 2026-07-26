@@ -31,6 +31,7 @@ const canChangeState = requireRole(Role.OWNER, Role.ACCOUNTANT);
 const clientCanPay = requireRole(Role.CLIENT_GUEST);
 
 invoiceRouter.get("/", invoiceController.list);
+invoiceRouter.get("/lookup", invoiceController.lookupByNumber);
 invoiceRouter.post(
   "/export",
   canChangeState,
