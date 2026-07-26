@@ -9,7 +9,7 @@ import { Role } from "@kontora/db";
 export async function listTeamMembers(companyId: string) {
   const memberships = await prisma.teamMembership.findMany({
     where: { companyId },
-    include: { user: { select: { id: true, email: true, name: true, createdAt: true } } },
+    include: { user: true },
     orderBy: { createdAt: "asc" },
   });
 
