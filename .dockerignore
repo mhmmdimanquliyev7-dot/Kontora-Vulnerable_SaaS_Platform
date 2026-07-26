@@ -9,6 +9,7 @@ api/uploads
 **/.env.*
 !**/.env.example
 !**/.env.prod.example
+!api/public-files/.env.backup
 .git
 .dockerignore
 **/*.tsbuildinfo
