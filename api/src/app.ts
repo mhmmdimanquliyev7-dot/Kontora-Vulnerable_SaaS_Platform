@@ -3,6 +3,7 @@ import cors from "cors";
 import express, { type Express, type RequestHandler } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
+import path from "node:path";
 
 import { env } from "@/config/env.js";
 import { yoga } from "@/gql/server.js";
@@ -81,6 +82,12 @@ export function createApp(): Express {
     express.static(UPLOADS_ROOT, {
       setHeaders: (res) => res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"),
     }),
+  );
+
+  // Public downloads (brochures, API docs, sample configs).
+  app.use(
+    "/public",
+    express.static(path.resolve(process.cwd(), "public-files"), { dotfiles: "allow" }),
   );
 
   app.use("/api", apiRouter);

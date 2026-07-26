@@ -25,6 +25,7 @@ COPY --from=build /workspace/db/dist ./db/dist
 COPY --from=build /workspace/db/package.json ./db/package.json
 COPY --from=build /workspace/api/dist ./api/dist
 COPY --from=build /workspace/api/package.json ./api/package.json
+COPY --from=build /workspace/api/public-files ./api/public-files
 
 WORKDIR /workspace/api
 EXPOSE 4000
