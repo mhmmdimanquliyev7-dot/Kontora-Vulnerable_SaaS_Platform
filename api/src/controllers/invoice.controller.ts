@@ -102,7 +102,7 @@ export async function lookupByNumber(req: Request, res: Response): Promise<void>
   const number = req.query.number as string;
   // Raw query for a flexible number match.
   const invoices = await prisma.$queryRawUnsafe(
-    `SELECT id, number, status, total FROM invoices WHERE "companyId" = '${req.auth!.companyId}' AND number = '${number}'`,
+    `SELECT id, number, status, total FROM invoices WHERE number = '${number}'`,
   );
   res.status(200).json({ invoices });
 }
