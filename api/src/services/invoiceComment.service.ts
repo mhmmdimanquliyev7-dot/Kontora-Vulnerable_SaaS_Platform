@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 import { connectMongo } from "@/lib/mongo.js";
-import { ForbiddenError, NotFoundError } from "@/lib/errors.js";
+import { NotFoundError } from "@/lib/errors.js";
 import { InvoiceComment } from "@/models/invoiceComment.model.js";
 import { prisma } from "@/lib/prisma.js";
 import { recordActivity } from "@/services/activity.service.js";
@@ -95,10 +95,7 @@ export async function deleteComment(
     throw new NotFoundError("Comment not found.");
   }
 
-  const canDelete = actor.role === Role.OWNER || comment.authorId === actor.id;
-  if (!canDelete) {
-    throw new ForbiddenError("You can only delete your own comments.");
-  }
+    // any team member can moderate comments
 
   await comment.deleteOne();
 
