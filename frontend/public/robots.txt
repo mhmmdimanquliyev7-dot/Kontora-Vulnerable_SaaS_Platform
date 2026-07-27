@@ -1,0 +1,6 @@
+@'
+User-agent: *
+Disallow: /api/
+Disallow: /uploads/
+Disallow: /public/
+'@ | Set-Content -Path frontend\public\robots.txt -Encoding utf8
