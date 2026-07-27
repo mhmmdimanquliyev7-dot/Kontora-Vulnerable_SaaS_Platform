@@ -65,7 +65,7 @@ async function findVisibleInvoice(viewer: InvoiceViewer, invoiceId: string) {
   }
 
   return prisma.invoice.findFirst({
-    where: { id: invoiceId, companyId: viewer.companyId },
+    where: { id: invoiceId },
     include: { client: true, items: { orderBy: { position: "asc" } } },
   });
 }
