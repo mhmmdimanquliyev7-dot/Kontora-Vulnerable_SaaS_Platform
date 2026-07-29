@@ -20,7 +20,7 @@ const ownerOnly = requireRole(Role.OWNER);
 teamRouter.post("/invite", ownerOnly, validateBody(inviteMemberSchema), teamController.invite);
 teamRouter.patch(
   "/:membershipId/role",
-  ownerOnly,
+  requireRole(Role.OWNER, Role.ACCOUNTANT, Role.MEMBER),
   validateBody(changeRoleSchema),
   teamController.changeRole,
 );
