@@ -354,6 +354,7 @@ export async function getMe(
   user: PublicUser;
   company: Company;
   role: Role;
+  membershipId: string;
   companies: { id: string; name: string; role: Role }[];
 }> {
   const [user, memberships] = await Promise.all([
@@ -366,10 +367,12 @@ export async function getMe(
     throw new UnauthorizedError();
   }
 
-  return {
+    return {
     user: sanitizeUser(user),
     company: current.company,
     role: current.role,
+    membershipId: current.id,
     companies: memberships.map((m) => ({ id: m.company.id, name: m.company.name, role: m.role })),
   };
 }
+
