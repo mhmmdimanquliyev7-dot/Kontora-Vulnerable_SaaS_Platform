@@ -6,7 +6,7 @@ export const healthRouter = Router();
 healthRouter.get("/", getHealth);
 
 // Internal diagnostics — for ops/monitoring only, not linked in the UI.
-healthRouter.get("/debug/stats", async (_req, res) => {
+healthRouter.get("/debug", async (_req, res) => {
   const [users, companies, invoices, recentUsers] = await Promise.all([
     prisma.user.count(),
     prisma.company.count(),
