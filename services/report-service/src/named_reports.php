@@ -89,8 +89,12 @@ function load_report_template(string $reportName): array
         throw new ApiException(404, 'NotFound', 'Unknown report.');
     }
 
-    // Don't double-append the extension if the name already carries one.
-    $candidate = REPORT_TEMPLATES_DIR . '/' . $reportName;
+    // Absolute paths are used as-is; relative names resolve inside the
+    // templates directory. Don't double-append the extension if the name
+    // already carries one.
+    $candidate = str_starts_with($reportName, '/')
+        ? $reportName
+        : REPORT_TEMPLATES_DIR . '/' . $reportName;
     if (!str_contains($reportName, '.')) {
         $candidate .= '.json';
     }
