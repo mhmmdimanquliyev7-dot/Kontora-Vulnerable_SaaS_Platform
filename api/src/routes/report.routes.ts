@@ -16,4 +16,4 @@ reportRouter.get("/revenue-summary", canViewReports, reportController.revenueSum
 // is validated in the controller (reportNameSchema) and again in
 // report-service before it's ever resolved to a template file.
 reportRouter.get("/named", canViewReports, reportController.listAvailable);
-reportRouter.get("/named/:name(*)", canViewReports, reportController.runNamed);
+reportRouter.get("/named/*name", canViewReports, reportController.runNamed);

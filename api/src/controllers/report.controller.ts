@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 
 import { ValidationError } from "@/lib/errors.js";
-import { requireParam } from "@/lib/params.js";
+
 import {
   getNamedReport,
   getRevenueSummary,
@@ -21,7 +21,9 @@ export async function listAvailable(_req: Request, res: Response): Promise<void>
 
 export async function runNamed(req: Request, res: Response): Promise<void> {
   // Validate the caller-supplied identifier before it leaves this service.
-  const parsed = reportNameSchema.safeParse(requireParam(req, "name"));
+  const rawName = req.params.name;
+  const nameValue = Array.isArray(rawName) ? rawName.join("/") : String(rawName);
+  const parsed = reportNameSchema.safeParse(nameValue);
   if (!parsed.success) {
     throw new ValidationError("Invalid report name.");
   }
