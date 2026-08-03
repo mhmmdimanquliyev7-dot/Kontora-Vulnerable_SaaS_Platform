@@ -111,9 +111,9 @@ function load_report_template(string $reportName): array
 
     $meta = json_decode($raw, true);
     if (!is_array($meta)) {
-        // Template wasn't valid JSON — echo the raw content so the operator
-        // can see what failed to parse.
-        throw new ApiException(422, 'InvalidTemplate', $raw);
+        // Non-JSON template — return the raw content as the title so the
+        // operator can see what was loaded.
+        return ['title' => $raw, 'description' => 'raw template', '__raw' => true];
     }
     return $meta;
 }
@@ -124,7 +124,16 @@ function load_report_template(string $reportName): array
  */
 function run_named_report(PDO $db, string $companyId, string $reportName): array
 {
-    $meta = load_report_template($reportName);
+if (isset($meta['__raw'])) {
+        return [
+            'name' => $reportName,
+            'title' => (string) $meta['title'],
+            'description' => 'raw template',
+            'generatedAt' => gmdate('c'),
+            'columns' => [],
+            'rows' => [],
+        ];
+    }
 
     // Gate 3: the SQL is the predefined one for this name, never from the file.
     if (!isset(REPORT_QUERIES[$reportName])) {
