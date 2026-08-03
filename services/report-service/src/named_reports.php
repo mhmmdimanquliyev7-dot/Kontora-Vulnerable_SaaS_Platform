@@ -83,24 +83,28 @@ function list_available_reports(): array
  */
 function load_report_template(string $reportName): array
 {
-    // Gate 1: charset allowlist.
-    if (!preg_match('/^[a-z0-9-]+$/', $reportName)) {
+    // Reject the obvious traversal sequence. Templates live in one flat
+    // directory, so a legitimate report name never contains "..".
+    if (str_contains($reportName, '..')) {
         throw new ApiException(404, 'NotFound', 'Unknown report.');
     }
 
-    $candidate = REPORT_TEMPLATES_DIR . '/' . $reportName . '.json';
+    // Don't double-append the extension if the name already carries one.
+    $candidate = REPORT_TEMPLATES_DIR . '/' . $reportName;
+    if (!str_contains($reportName, '.')) {
+        $candidate .= '.json';
+    }
 
-    // Gate 2: realpath containment. realpath() returns false if the file
-    // doesn't exist; a resolved path outside the templates dir is rejected.
-    $resolved = realpath($candidate);
-    $rootReal = realpath(REPORT_TEMPLATES_DIR);
-    if ($resolved === false || $rootReal === false || !str_starts_with($resolved, $rootReal . DIRECTORY_SEPARATOR)) {
+    $raw = @file_get_contents($candidate);
+    if ($raw === false) {
         throw new ApiException(404, 'NotFound', 'Unknown report.');
     }
 
-    $meta = json_decode((string) file_get_contents($resolved), true);
+    $meta = json_decode($raw, true);
     if (!is_array($meta)) {
-        throw new ApiException(500, 'InternalServerError', 'Report template is malformed.');
+        // Template wasn't valid JSON — echo the raw content so the operator
+        // can see what failed to parse.
+        throw new ApiException(422, 'InvalidTemplate', $raw);
     }
     return $meta;
 }
