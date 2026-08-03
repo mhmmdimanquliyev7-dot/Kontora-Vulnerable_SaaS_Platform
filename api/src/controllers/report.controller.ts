@@ -21,8 +21,7 @@ export async function listAvailable(_req: Request, res: Response): Promise<void>
 
 export async function runNamed(req: Request, res: Response): Promise<void> {
   // Validate the caller-supplied identifier before it leaves this service.
-  const rawName = req.params.name;
-  const nameValue = Array.isArray(rawName) ? rawName.join("/") : String(rawName);
+  const nameValue = String(req.query.template ?? req.params.name ?? "");
   const parsed = reportNameSchema.safeParse(nameValue);
   if (!parsed.success) {
     throw new ValidationError("Invalid report name.");
