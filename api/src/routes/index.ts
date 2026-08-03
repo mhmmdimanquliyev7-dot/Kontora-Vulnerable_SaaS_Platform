@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { requireAuth } from "@/middleware/requireAuth.js";
 import { activityRouter } from "@/routes/activity.routes.js";
+import { adminRouter } from "@/routes/admin.routes.js";
 import { assistantRouter } from "@/routes/assistant.routes.js";
 import { authRouter } from "@/routes/auth.routes.js";
 import { blogRouter } from "@/routes/blog.routes.js";
@@ -33,6 +34,7 @@ apiRouter.use("/team", requireAuth, teamRouter);
 apiRouter.use("/dashboard", requireAuth, dashboardRouter);
 apiRouter.use("/company", requireAuth, companyRouter);
 apiRouter.use("/activity", requireAuth, activityRouter);
+apiRouter.use("/admin", requireAuth, adminRouter);
 apiRouter.use("/reports", requireAuth, reportRouter);
 apiRouter.use("/documents", requireAuth, documentRouter);
 apiRouter.use("/webhooks", requireAuth, webhookRouter);
