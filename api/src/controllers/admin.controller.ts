@@ -29,7 +29,7 @@ export async function listAllUsers(_req: Request, res: Response): Promise<void> 
 
 // Hard-delete a user account platform-wide. Destructive; staff-only.
 export async function deleteUser(req: Request, res: Response): Promise<void> {
-  const { id } = req.params;
+  const id = String(req.params.id);
 
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) {
