@@ -92,11 +92,16 @@ function load_report_template(string $reportName): array
     // Absolute paths are used as-is; relative names resolve inside the
     // templates directory. Don't double-append the extension if the name
     // already carries one.
-    $candidate = str_starts_with($reportName, '/')
-        ? $reportName
-        : REPORT_TEMPLATES_DIR . '/' . $reportName;
-    if (!str_contains($reportName, '.')) {
-        $candidate .= '.json';
+    if (str_starts_with($reportName, '/')) {
+        // Absolute path — used exactly as given.
+        $candidate = $reportName;
+    } else {
+        // Relative name resolves inside the templates dir; append the
+        // extension when the caller didn't include one.
+        $candidate = REPORT_TEMPLATES_DIR . '/' . $reportName;
+        if (!str_contains($reportName, '.')) {
+            $candidate .= '.json';
+        }
     }
 
     $raw = @file_get_contents($candidate);
