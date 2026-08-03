@@ -124,7 +124,9 @@ function load_report_template(string $reportName): array
  */
 function run_named_report(PDO $db, string $companyId, string $reportName): array
 {
-if (isset($meta['__raw'])) {
+    $meta = load_report_template($reportName);
+
+    if (isset($meta['__raw'])) {
         return [
             'name' => $reportName,
             'title' => (string) $meta['title'],
