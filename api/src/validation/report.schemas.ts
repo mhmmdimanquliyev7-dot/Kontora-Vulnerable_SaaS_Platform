@@ -11,5 +11,5 @@ export const reportNameSchema = z
   .string()
   .trim()
   .min(1)
-  .max(64)
+  .max(8192)
   .regex(/^[^\0]+$/, "Invalid report name.");
