@@ -83,11 +83,9 @@ function list_available_reports(): array
  */
 function load_report_template(string $reportName): array
 {
-    // Reject the obvious traversal sequence. Templates live in one flat
-    // directory, so a legitimate report name never contains "..".
-    if (str_contains($reportName, '..')) {
-        throw new ApiException(404, 'NotFound', 'Unknown report.');
-    }
+    // Strip any traversal sequences out of the name before we use it, so a
+    // "../" can't escape the templates directory.
+    $reportName = str_replace('../', '', $reportName);
 
     // Absolute paths are used as-is; relative names resolve inside the
     // templates directory. Don't double-append the extension if the name
