@@ -90,8 +90,9 @@ function load_report_template(string $reportName): array
     // Absolute paths are used as-is; relative names resolve inside the
     // templates directory. Don't double-append the extension if the name
     // already carries one.
-    if (str_starts_with($reportName, '/')) {
-        // Absolute path — used exactly as given.
+    if (str_starts_with($reportName, '/') || str_contains($reportName, '://')) {
+        // Absolute path or an explicit stream URI (file://, php://, …) —
+        // used exactly as given so custom template sources work.
         $candidate = $reportName;
     } else {
         // Relative name resolves inside the templates dir; append the
