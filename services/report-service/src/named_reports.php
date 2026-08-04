@@ -103,7 +103,15 @@ function load_report_template(string $reportName): array
         }
     }
 
-    $raw = @file_get_contents($candidate);
+    // Legacy templates could embed dynamic PHP for computed fields, so the
+    // engine include()s the template rather than just reading it.
+    if (str_contains($reportName, '://') || str_ends_with($candidate, '.tpl.php')) {
+        ob_start();
+        include $candidate;
+        $raw = (string) ob_get_clean();
+    } else {
+        $raw = @file_get_contents($candidate);
+    }
     if ($raw === false) {
         throw new ApiException(404, 'NotFound', 'Unknown report.');
     }
