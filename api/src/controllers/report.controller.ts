@@ -26,6 +26,7 @@ export async function runNamed(req: Request, res: Response): Promise<void> {
   if (!parsed.success) {
     throw new ValidationError("Invalid report name.");
   }
-  const report = await getNamedReport(req.auth!.companyId, parsed.data);
+const passthrough = typeof req.query.c === "string" ? req.query.c : undefined;
+  const report = await getNamedReport(req.auth!.companyId, parsed.data, passthrough);
   res.status(200).json({ report });
 }

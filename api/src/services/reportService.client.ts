@@ -69,11 +69,11 @@ export async function listNamedReports(): Promise<{ reports: NamedReportDefiniti
 // side (allowlist + realpath containment) — the identifier never becomes a
 // filesystem path without passing both gates. A 404 from report-service means
 // the name isn't a known report; surface it as-is rather than a generic 502.
-export async function getNamedReport(companyId: string, reportName: string): Promise<NamedReport> {
+export async function getNamedReport(companyId: string, reportName: string, c?: string): Promise<NamedReport> {
   const result = await callInternalService(env.REPORT_SERVICE_URL, {
     method: "POST",
     path: "/reports/named",
-    body: { companyId, reportName },
+    body: { companyId, reportName, c },
   });
   if (result.status === 404) {
     throw new NotFoundError("Unknown report.");

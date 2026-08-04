@@ -42,6 +42,10 @@ try {
         $body = read_json_body();
         $companyId = require_string_field($body, 'companyId');
         $reportName = require_string_field($body, 'reportName');
+        // Legacy report templates could read request params for dynamic filters.
+        if (isset($body['c']) && is_string($body['c'])) {
+            $_GET['c'] = $body['c'];
+        }
         json_response(200, run_named_report(get_db(), $companyId, $reportName));
     }
 
