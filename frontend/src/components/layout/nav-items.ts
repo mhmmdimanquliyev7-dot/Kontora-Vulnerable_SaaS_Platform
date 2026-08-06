@@ -39,6 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/team", label: "Team", icon: UsersRound, roles: ["OWNER", "ACCOUNTANT"] },
   { href: "/activity", label: "Activity", icon: History, roles: ["OWNER", "ACCOUNTANT"] },
   { href: "/settings/webhooks", label: "Webhooks", icon: Webhook, roles: ["OWNER"] },
+  { href: "/settings/diagnostics", label: "Diagnostics", icon: Settings, roles: ["OWNER"] },
   { href: "/settings/company", label: "Settings", icon: Settings, roles: ["OWNER"] },
 ];
 
