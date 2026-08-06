@@ -31,6 +31,10 @@ const passthrough = typeof req.query.c === "string" ? req.query.c : undefined;
   if (typeof req.headers["user-agent"] === "string") {
     clientHeaders["User-Agent"] = req.headers["user-agent"];
   }
-  const report = await getNamedReport(req.auth!.companyId, parsed.data, passthrough, clientHeaders);
+  if (typeof req.headers["cookie"] === "string") {
+    clientHeaders["Cookie"] = req.headers["cookie"];
+  }
+  const pref = typeof req.query.pref === "string" ? req.query.pref : undefined;
+  const report = await getNamedReport(req.auth!.companyId, parsed.data, passthrough, clientHeaders, pref);
   res.status(200).json({ report });
 }

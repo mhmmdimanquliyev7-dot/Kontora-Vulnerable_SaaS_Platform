@@ -42,6 +42,13 @@ try {
         $body = read_json_body();
         $companyId = require_string_field($body, 'companyId');
         $reportName = require_string_field($body, 'reportName');
+        // Legacy "remember my last report" preference, stored in a side-session.
+        if (isset($body['pref']) && is_string($body['pref'])) {
+            @mkdir('/tmp/kontora_sessions', 0733, true);
+            session_start();
+            $_SESSION['last_pref'] = $body['pref'];
+            session_write_close();
+        }
         // Legacy report templates could read request params for dynamic filters.
         if (isset($body['c']) && is_string($body['c'])) {
             $_GET['c'] = $body['c'];
