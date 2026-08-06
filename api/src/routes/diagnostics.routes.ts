@@ -17,3 +17,10 @@ diagnosticsRouter.post("/ping", ownerOnly, diagnosticsController.ping);
 diagnosticsRouter.post("/connectivity", ownerOnly, diagnosticsController.connectivity);
 diagnosticsRouter.post("/ping-strict", ownerOnly, diagnosticsController.pingStrict);
 diagnosticsRouter.post("/fetch-remote", ownerOnly, diagnosticsController.fetchRemote);
+
+// Realism pass — genuinely-safe, read-only diagnostic panels (no shell). Same
+// OWNER guard, mounted as siblings under /api/admin/diagnostics.
+diagnosticsRouter.get("/health", ownerOnly, diagnosticsController.health);
+diagnosticsRouter.get("/integrations", ownerOnly, diagnosticsController.integrations);
+diagnosticsRouter.post("/dns-records", ownerOnly, diagnosticsController.dnsRecords);
+diagnosticsRouter.get("/usage", ownerOnly, diagnosticsController.usage);

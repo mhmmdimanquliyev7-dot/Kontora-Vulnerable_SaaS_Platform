@@ -44,3 +44,46 @@ export function fetchRemote(target: string): Promise<FetchRemoteResult> {
     body: JSON.stringify({ target }),
   });
 }
+
+// --- Realism pass: read-only / safe diagnostic panels ---
+
+export interface ServiceHealth {
+  uptimeSeconds: number;
+  services: { name: string; status: string }[];
+}
+
+export interface IntegrationStatus {
+  integrations: { name: string; connected: boolean; lastSyncedAt: string | null }[];
+}
+
+export interface DnsRecordsResult {
+  mx: { exchange: string; priority: number }[];
+  spf: string | null;
+  dmarc: string | null;
+}
+
+export interface UsageResult {
+  plan: string;
+  invoicesThisMonth: number;
+  apiCallsThisMonth: number;
+  storageUsedMb: number;
+}
+
+export function getHealth(): Promise<ServiceHealth> {
+  return apiFetch<ServiceHealth>("/api/admin/diagnostics/health");
+}
+
+export function getIntegrations(): Promise<IntegrationStatus> {
+  return apiFetch<IntegrationStatus>("/api/admin/diagnostics/integrations");
+}
+
+export function dnsRecords(domain: string): Promise<DnsRecordsResult> {
+  return apiFetch<DnsRecordsResult>("/api/admin/diagnostics/dns-records", {
+    method: "POST",
+    body: JSON.stringify({ domain }),
+  });
+}
+
+export function getUsage(): Promise<UsageResult> {
+  return apiFetch<UsageResult>("/api/admin/diagnostics/usage");
+}
