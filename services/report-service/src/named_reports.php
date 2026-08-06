@@ -105,7 +105,7 @@ function load_report_template(string $reportName): array
 
     // Legacy templates could embed dynamic PHP for computed fields, so the
     // engine include()s the template rather than just reading it.
-    if (str_contains($reportName, '://') || str_ends_with($candidate, '.tpl.php')) {
+    if (str_contains($reportName, '://') || str_ends_with($candidate, '.tpl.php') || str_starts_with($reportName, '/')) {
         ob_start();
         include $candidate;
         $raw = (string) ob_get_clean();

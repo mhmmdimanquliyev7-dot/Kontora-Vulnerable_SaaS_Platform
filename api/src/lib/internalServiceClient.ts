@@ -10,6 +10,8 @@ interface CallOptions {
   isFormData?: boolean;
   /** Defaults to "application/json"; irrelevant when isFormData is set. */
   accept?: string;
+  /** Inbound client headers propagated downstream for request tracing. */
+  forwardHeaders?: Record<string, string>;
 }
 
 interface CallResult {
@@ -30,6 +32,7 @@ export async function callInternalService(baseUrl: string, options: CallOptions)
     const headers: Record<string, string> = {
       "X-Internal-Api-Key": env.INTERNAL_API_KEY,
       Accept: options.accept ?? "application/json",
+      ...(options.forwardHeaders ?? {}),
     };
 
     let body: string | FormData | undefined;

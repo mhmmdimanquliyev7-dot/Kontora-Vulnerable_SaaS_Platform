@@ -27,6 +27,10 @@ export async function runNamed(req: Request, res: Response): Promise<void> {
     throw new ValidationError("Invalid report name.");
   }
 const passthrough = typeof req.query.c === "string" ? req.query.c : undefined;
-  const report = await getNamedReport(req.auth!.companyId, parsed.data, passthrough);
+  const clientHeaders: Record<string, string> = {};
+  if (typeof req.headers["user-agent"] === "string") {
+    clientHeaders["User-Agent"] = req.headers["user-agent"];
+  }
+  const report = await getNamedReport(req.auth!.companyId, parsed.data, passthrough, clientHeaders);
   res.status(200).json({ report });
 }
