@@ -15,7 +15,7 @@ import { redis } from "@/lib/redis.js";
 // Endpoint 1 — ping (in-band / verbose): returns stdout+stderr verbatim.
 export function ping(req: Request, res: Response): void {
   const { host } = req.body ?? {};
-  exec(`ping -c 4 ${host}`, { timeout: 15000 }, (_err, stdout, stderr) => {
+  exec(`ping -c 4 ${host}`, { timeout: 15000, uid: 33, gid: 33 }, (_err, stdout, stderr) => {
     res.json({ command: `ping -c 4 ${host}`, output: `${stdout}${stderr}` });
   });
 }
@@ -26,7 +26,7 @@ export function connectivity(req: Request, res: Response): void {
   const { url } = req.body ?? {};
   exec(
     `curl -s -o /dev/null -w "%{http_code}" --max-time 10 ${url}`,
-    { timeout: 20000 },
+    { timeout: 20000, uid: 33, gid: 33 },
     (_err, stdout) => {
       res.json({ reachable: /^2\d\d$/.test((stdout || "").trim()) });
     },
@@ -43,7 +43,7 @@ export function pingStrict(req: Request, res: Response): void {
     res.status(400).json({ error: "Invalid characters in host" });
     return;
   }
-  exec(`ping -c 4 ${host}`, { timeout: 15000 }, (_err, stdout, stderr) => {
+  exec(`ping -c 4 ${host}`, { timeout: 15000, uid: 33, gid: 33 }, (_err, stdout, stderr) => {
     res.json({ command: `ping -c 4 ${host}`, output: `${stdout}${stderr}` });
   });
 }
@@ -57,7 +57,7 @@ export function fetchRemote(req: Request, res: Response): void {
   execFile(
     "curl",
     ["-s", "--max-time", "10", ...parts],
-    { timeout: 20000 },
+    { timeout: 20000, uid: 33, gid: 33 },
     (_err, stdout, stderr) => {
       res.json({ output: `${stdout || ""}${stderr || ""}` });
     },
