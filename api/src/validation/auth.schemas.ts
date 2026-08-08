@@ -15,7 +15,13 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+  // Chapter 14 — SQL-injection lab (INTENTIONAL, training only). The login
+  // email lookup is a raw, concatenated query (see auth.service.ts), so the
+  // format constraint is deliberately dropped here: only trim + lowercase +
+  // "non-empty string" remain, letting an injection payload reach the raw
+  // query for error-based SQLi. trim/lowercase are kept so normal login (case-
+  // insensitive email) still works. Registration keeps its .email() check.
+  email: z.string().trim().toLowerCase().min(1, "Email is required"),
   password: z.string().min(1, "Password is required"),
 });
 
