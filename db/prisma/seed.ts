@@ -10,7 +10,49 @@ import { PrismaPg } from "@prisma/adapter-pg";
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const SEED_PASSWORD = "Password123!";
+// ===========================================================================
+// ANSWER KEY — seed login credentials (DEV / TRAINING ONLY)
+// ===========================================================================
+// Each seed user now has a DISTINCT, deliberately weak password. Every one is
+// a plain entry in the standard rockyou.txt wordlist, so a leaked bcrypt hash
+// (e.g. via the SQLi sinks) cracks offline with hashcat/rockyou -> plaintext
+// -> account takeover. The HASH is not weakened: bcrypt at cost 12 (below),
+// same as before. Only the plaintext is common.
+//
+//   Acme Consulting
+//     owner@acme.test        OWNER         iloveyou     <- likely YOUR login
+//     accountant@acme.test   ACCOUNTANT    password1
+//     member@acme.test       MEMBER        sunshine
+//     member2@acme.test      MEMBER        princess
+//     client@acme.test       CLIENT_GUEST  letmein
+//   Nimbus Retail
+//     owner@nimbus.test      OWNER         superman     <- likely YOUR login
+//     accountant@nimbus.test ACCOUNTANT    trustno1
+//     member@nimbus.test     MEMBER        monkey
+//     client@nimbus.test     CLIENT_GUEST  football
+//
+// The two OWNER accounts are the ones you'd normally sign in as — don't lock
+// yourself out. Keep this block in sync with scripts/update-seed-passwords.mjs.
+// ===========================================================================
+const SEED_PASSWORDS: Record<string, string> = {
+  "owner@acme.test": "iloveyou",
+  "accountant@acme.test": "password1",
+  "member@acme.test": "sunshine",
+  "member2@acme.test": "princess",
+  "client@acme.test": "letmein",
+  "owner@nimbus.test": "superman",
+  "accountant@nimbus.test": "trustno1",
+  "member@nimbus.test": "monkey",
+  "client@nimbus.test": "football",
+};
+
+function passwordFor(email: string): string {
+  const password = SEED_PASSWORDS[email];
+  if (!password) {
+    throw new Error(`No seed password defined for ${email} — update SEED_PASSWORDS.`);
+  }
+  return password;
+}
 
 async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
@@ -671,8 +713,6 @@ async function main(): Promise<void> {
   await resetDatabase();
   await grantReportServiceReadAccess();
 
-  const passwordHash = await hashPassword(SEED_PASSWORD);
-
   for (const companySpec of companies) {
     console.log(`\nSeeding company: ${companySpec.name}`);
 
@@ -697,6 +737,9 @@ async function main(): Promise<void> {
     const usersByRole: Partial<Record<Role, { id: string; email: string }>> = {};
     const usersByEmail = new Map<string, { id: string }>();
     for (const userSpec of companySpec.users) {
+      // Distinct, rockyou-crackable password per user (see ANSWER KEY above),
+      // hashed with the same bcrypt cost as always.
+      const passwordHash = await hashPassword(passwordFor(userSpec.email));
       const user = await prisma.user.create({
         data: { email: userSpec.email, name: userSpec.name, passwordHash },
       });
@@ -818,18 +861,21 @@ async function main(): Promise<void> {
   }
 
   console.log("\nSeed complete.\n");
-  console.log("=".repeat(60));
-  console.log("Seed credentials (dev only — do not reuse anywhere real)");
-  console.log("=".repeat(60));
-  console.log(`Password for every seeded user: ${SEED_PASSWORD}\n`);
+  console.log("=".repeat(72));
+  console.log("ANSWER KEY — seed credentials (dev only; distinct, rockyou-crackable)");
+  console.log("=".repeat(72));
   for (const companySpec of companies) {
     console.log(`${companySpec.name}:`);
     for (const userSpec of companySpec.users) {
-      console.log(`  ${userSpec.role.padEnd(13)} ${userSpec.email}`);
+      const owner = userSpec.role === Role.OWNER ? "   <- likely YOUR login" : "";
+      console.log(
+        `  ${userSpec.role.padEnd(13)} ${userSpec.email.padEnd(24)} ${passwordFor(userSpec.email).padEnd(12)}${owner}`,
+      );
     }
     console.log("");
   }
-  console.log("=".repeat(60));
+  console.log("bcrypt cost is unchanged (12) — the hash is strong; the passwords are weak.");
+  console.log("=".repeat(72));
 }
 
 main()
