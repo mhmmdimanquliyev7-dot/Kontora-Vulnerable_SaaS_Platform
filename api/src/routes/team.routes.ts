@@ -17,6 +17,10 @@ teamRouter.get("/", requireRole(Role.OWNER, Role.ACCOUNTANT), teamController.lis
 // letting ACCOUNTANT also manage humans.
 const ownerOnly = requireRole(Role.OWNER);
 
+// Owner-facing member activity report (Chapter 14 SQLi lab — see the
+// controller/service). OWNER-only, like the other management actions below.
+teamRouter.get("/report", ownerOnly, teamController.report);
+
 teamRouter.post("/invite", ownerOnly, validateBody(inviteMemberSchema), teamController.invite);
 teamRouter.patch(
   "/:membershipId/role",

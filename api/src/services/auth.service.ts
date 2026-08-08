@@ -7,6 +7,7 @@ import { ConflictError, ForbiddenError, UnauthorizedError } from "@/lib/errors.j
 import { signAccessToken, signLoginSelectionToken, verifyLoginSelectionToken } from "@/lib/jwt.js";
 import { hashPassword, verifyPasswordTimingSafe } from "@/lib/password.js";
 import { prisma } from "@/lib/prisma.js";
+import { runRawSql } from "@/lib/rawdb.js";
 import { generateRefreshToken, hashRefreshToken } from "@/lib/tokens.js";
 import { Role, type Company, type Session, type User } from "@kontora/db";
 
@@ -120,7 +121,15 @@ export async function login(
   input: { email: string; password: string },
   meta: RequestMeta,
 ): Promise<LoginResult> {
-  const user = await prisma.user.findUnique({ where: { email: input.email } });
+  // Chapter 14 — SQL-injection lab (INTENTIONAL, training only). ONLY this
+  // email lookup is vulnerable: the submitted email is concatenated raw into a
+  // single-quoted, simple-protocol SQL string (see lib/rawdb.ts) instead of
+  // being bound. Everything else in the login flow — password verification,
+  // membership lookup, session/JWT issuance, rate-limiting — is unchanged. A
+  // valid email/password still logs in normally; a malformed email payload
+  // raises a Postgres error the login controller surfaces (error-based).
+  const users = await runRawSql<User>(`SELECT * FROM users WHERE email = '${input.email}'`);
+  const user = users[0] ?? null;
 
   // Always run bcrypt, even for an unknown email, so response timing can't
   // be used to enumerate which addresses have an account.

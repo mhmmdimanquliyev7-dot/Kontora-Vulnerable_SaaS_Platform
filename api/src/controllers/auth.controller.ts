@@ -7,6 +7,7 @@ import {
   setRefreshTokenCookie,
 } from "@/lib/cookies.js";
 import { UnauthorizedError } from "@/lib/errors.js";
+import { SqlSurfaceError } from "@/lib/rawdb.js";
 import * as authService from "@/services/auth.service.js";
 import type { AuthTokens } from "@/services/auth.service.js";
 import * as passwordResetService from "@/services/passwordReset.service.js";
@@ -30,7 +31,19 @@ export async function register(req: Request, res: Response): Promise<void> {
 }
 
 export async function login(req: Request, res: Response): Promise<void> {
-  const result = await authService.login(req.body, requestMeta(req));
+  let result: Awaited<ReturnType<typeof authService.login>>;
+  try {
+    result = await authService.login(req.body, requestMeta(req));
+  } catch (err) {
+    // Chapter 14 — error-based SQLi surface for the login path ONLY: echo the
+    // raw Postgres message from the vulnerable email lookup back to the
+    // caller. The global errorHandler and every other endpoint are untouched.
+    if (err instanceof SqlSurfaceError) {
+      res.status(400).json({ error: "SqlError", message: err.message });
+      return;
+    }
+    throw err;
+  }
 
   if (result.status === "company_selection_required") {
     res.status(200).json({

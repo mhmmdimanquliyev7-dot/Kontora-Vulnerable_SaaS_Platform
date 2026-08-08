@@ -4,6 +4,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors.js";
 import { requireParam } from "@/lib/params.js";
 import { streamInvoicePdf } from "@/lib/pdf.js";
 import { prisma } from "@/lib/prisma.js";
+import { SqlSurfaceError, runRawSql } from "@/lib/rawdb.js";
 import * as invoiceService from "@/services/invoice.service.js";
 import { exportInvoices as exportInvoicesUpstream } from "@/services/exportWorker.client.js";
 import type { InvoiceStatus } from "@kontora/db";
@@ -105,4 +106,24 @@ export async function lookupByNumber(req: Request, res: Response): Promise<void>
     `SELECT id, number, status, total FROM invoices WHERE number = '${number}'`,
   );
   res.status(200).json({ invoices });
+}
+
+// Chapter 14 — invoice search (INTENTIONALLY VULNERABLE, training only). The
+// user's search term is concatenated straight into a simple-protocol SQL
+// string via node-postgres (see lib/rawdb.ts): no validation, no escaping,
+// and no tenant scoping. This is the chapter's PRIMARY sink — a clean
+// four-column SELECT that hosts UNION / error / boolean / time-based / OOB /
+// COPY-PROGRAM payloads. On a DB error the raw Postgres message is echoed
+// back for THIS endpoint only (error-based), without touching the global
+// errorHandler.
+export async function search(req: Request, res: Response): Promise<void> {
+  const term = (req.query.q as string) ?? "";
+  const sql = `SELECT id, number, status, total FROM invoices WHERE number ILIKE '%${term}%' OR notes ILIKE '%${term}%'`;
+  try {
+    const invoices = await runRawSql(sql);
+    res.status(200).json({ invoices });
+  } catch (err) {
+    const message = err instanceof SqlSurfaceError ? err.message : "Search failed.";
+    res.status(400).json({ error: "SqlError", message });
+  }
 }

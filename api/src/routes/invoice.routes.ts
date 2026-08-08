@@ -32,6 +32,9 @@ const clientCanPay = requireRole(Role.CLIENT_GUEST);
 
 invoiceRouter.get("/", invoiceController.list);
 invoiceRouter.get("/lookup", invoiceController.lookupByNumber);
+// Free-text invoice search (Chapter 14 SQLi lab — see the controller). Like
+// list/lookup it carries no requireRole: any authenticated role can search.
+invoiceRouter.get("/search", invoiceController.search);
 invoiceRouter.post(
   "/export",
   canChangeState,

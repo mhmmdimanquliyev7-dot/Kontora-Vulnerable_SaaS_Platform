@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -27,6 +28,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useMe } from "@/hooks/use-auth";
 import { useInvoices } from "@/hooks/use-invoices";
+import { ApiError } from "@/lib/api/client";
+import { searchInvoices, type InvoiceSearchResult } from "@/lib/api/invoices";
 import { formatDate, formatMoney } from "@/lib/format";
 import type { InvoiceStatus } from "@/lib/api/types";
 
@@ -47,6 +50,35 @@ export default function InvoicesPage() {
   const [status, setStatus] = useState<InvoiceStatus | "ALL">("ALL");
   const invoices = useInvoices(status === "ALL" ? {} : { status });
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<InvoiceSearchResult[] | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  async function runSearch() {
+    if (!searchTerm.trim()) {
+      setSearchResults(null);
+      setSearchError(null);
+      return;
+    }
+    setSearching(true);
+    setSearchError(null);
+    try {
+      setSearchResults(await searchInvoices(searchTerm));
+    } catch (err) {
+      setSearchError(err instanceof ApiError ? err.message : "Search failed.");
+      setSearchResults(null);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function clearSearch() {
+    setSearchTerm("");
+    setSearchResults(null);
+    setSearchError(null);
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -64,20 +96,77 @@ export default function InvoicesPage() {
         }
       />
 
-      <Select value={status} onValueChange={(v) => setStatus(v as InvoiceStatus | "ALL")}>
-        <SelectTrigger className="w-48">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {STATUS_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-1 gap-2">
+          <Input
+            placeholder="Search invoices by number…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void runSearch();
+            }}
+          />
+          <Button variant="secondary" onClick={() => void runSearch()} disabled={searching}>
+            {searching ? "Searching…" : "Search"}
+          </Button>
+          {(searchResults !== null || searchError) && (
+            <Button variant="ghost" onClick={clearSearch}>
+              Clear
+            </Button>
+          )}
+        </div>
+        <Select value={status} onValueChange={(v) => setStatus(v as InvoiceStatus | "ALL")}>
+          <SelectTrigger className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      {invoices.isPending ? (
+      {searchError ? (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">
+          {searchError}
+        </div>
+      ) : searchResults !== null ? (
+        searchResults.length > 0 ? (
+          <div className="rounded-lg border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Number</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {searchResults.map((invoice) => (
+                  <TableRow
+                    key={invoice.id}
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/invoices/${invoice.id}`)}
+                  >
+                    <TableCell className="font-medium">{invoice.number}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={invoice.status} />
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">
+                      {formatMoney(invoice.total)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <EmptyState icon={FileText} title="No invoices match your search" />
+        )
+      ) : invoices.isPending ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full" />

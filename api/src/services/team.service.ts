@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors.js";
 import { hashPassword } from "@/lib/password.js";
 import { prisma } from "@/lib/prisma.js";
+import { runRawSql } from "@/lib/rawdb.js";
 import { recordActivity } from "@/services/activity.service.js";
 import { Role } from "@kontora/db";
 
@@ -23,6 +24,45 @@ export async function listTeamMembers(companyId: string) {
 
 async function countOwners(companyId: string): Promise<number> {
   return prisma.teamMembership.count({ where: { companyId, role: Role.OWNER } });
+}
+
+export interface MemberReportRow {
+  membershipId: string;
+  role: Role;
+  member: string;
+  invoiceCount: number;
+}
+
+// Chapter 14 — SQL-injection lab, SECOND-ORDER sink (INTENTIONAL, training
+// only). The display name a user chose at registration is stored verbatim
+// (never sanitized — see register() in auth.service.ts) and lies dormant
+// until an OWNER runs this member report. Here it is read back out and
+// concatenated raw into a simple-protocol SQL string (see lib/rawdb.ts), so a
+// stored name like  x' UNION SELECT ... --  detonates when the owner views
+// the report, not when it was stored. The membership list itself is fetched
+// with Prisma (bound); the ONLY injectable value is the stored member name.
+export async function memberActivityReport(companyId: string): Promise<MemberReportRow[]> {
+  const memberships = await prisma.teamMembership.findMany({
+    where: { companyId },
+    include: { user: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const report: MemberReportRow[] = [];
+  for (const m of memberships) {
+    const rows = await runRawSql<{ member: string; invoice_count: number }>(
+      `SELECT '${m.user.name}' AS member,
+              (SELECT COUNT(*) FROM invoices WHERE "createdById" = '${m.userId}')::int AS invoice_count`,
+    );
+    const row = rows[0];
+    report.push({
+      membershipId: m.id,
+      role: m.role,
+      member: row?.member ?? m.user.name,
+      invoiceCount: row?.invoice_count ?? 0,
+    });
+  }
+  return report;
 }
 
 export interface InviteMemberInput {

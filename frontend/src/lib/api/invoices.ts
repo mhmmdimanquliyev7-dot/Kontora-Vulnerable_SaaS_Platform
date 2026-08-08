@@ -36,6 +36,22 @@ export async function getInvoice(id: string): Promise<Invoice> {
   return res.invoice;
 }
 
+export interface InvoiceSearchResult {
+  id: string;
+  number: string;
+  status: InvoiceStatus;
+  total: string;
+}
+
+// Free-text invoice search (matches number / notes). Backed by the raw
+// server-side search endpoint.
+export async function searchInvoices(q: string): Promise<InvoiceSearchResult[]> {
+  const res = await apiFetch<{ invoices: InvoiceSearchResult[] }>(
+    `/api/invoices/search?q=${encodeURIComponent(q)}`,
+  );
+  return res.invoices;
+}
+
 export async function createInvoice(input: InvoiceInput): Promise<Invoice> {
   const res = await apiFetch<{ invoice: Invoice }>("/api/invoices", {
     method: "POST",

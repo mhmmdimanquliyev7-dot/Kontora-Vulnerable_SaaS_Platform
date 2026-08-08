@@ -36,6 +36,7 @@ import { InviteMemberDialog } from "@/components/team/invite-member-dialog";
 import { useMe } from "@/hooks/use-auth";
 import { useChangeMemberRole, useRemoveMember, useTeam } from "@/hooks/use-team";
 import { ApiError } from "@/lib/api/client";
+import { getMemberReport, type MemberReportRow } from "@/lib/api/team";
 import { initials } from "@/lib/format";
 import type { Role, TeamMember } from "@/lib/api/types";
 
@@ -45,6 +46,67 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "MEMBER", label: "Member" },
   { value: "CLIENT_GUEST", label: "Client" },
 ];
+
+function MemberReportSection() {
+  const [rows, setRows] = useState<MemberReportRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function run() {
+    setLoading(true);
+    setError(null);
+    try {
+      setRows(await getMemberReport());
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Report failed.");
+      setRows(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">Member activity report</h2>
+          <p className="text-sm text-muted-foreground">Invoices created by each team member.</p>
+        </div>
+        <Button variant="secondary" onClick={run} disabled={loading}>
+          {loading ? "Running…" : "Run report"}
+        </Button>
+      </div>
+      {error ? (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      ) : rows !== null ? (
+        <div className="rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead className="text-right">Invoices created</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <TableRow key={r.membershipId}>
+                  <TableCell className="font-medium">{r.member}</TableCell>
+                  <TableCell>
+                    <RoleBadge role={r.role} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{r.invoiceCount}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default function TeamPage() {
   const { data: me } = useMe();
@@ -175,6 +237,8 @@ export default function TeamPage() {
       ) : (
         <EmptyState icon={UsersRound} title="No team members" />
       )}
+
+      {isOwner && <MemberReportSection />}
 
       <InviteMemberDialog open={inviteOpen} onOpenChange={setInviteOpen} />
 

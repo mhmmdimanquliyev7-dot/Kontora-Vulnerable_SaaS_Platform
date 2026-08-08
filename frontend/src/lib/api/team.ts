@@ -13,6 +13,19 @@ export async function listTeam(): Promise<TeamMember[]> {
   return res.members;
 }
 
+export interface MemberReportRow {
+  membershipId: string;
+  role: Role;
+  member: string;
+  invoiceCount: number;
+}
+
+// Owner-only member activity report: invoices created by each team member.
+export async function getMemberReport(): Promise<MemberReportRow[]> {
+  const res = await apiFetch<{ report: MemberReportRow[] }>("/api/team/report");
+  return res.report;
+}
+
 export function inviteMember(input: InviteMemberInput): Promise<unknown> {
   return apiFetch("/api/team/invite", { method: "POST", body: JSON.stringify(input) });
 }
