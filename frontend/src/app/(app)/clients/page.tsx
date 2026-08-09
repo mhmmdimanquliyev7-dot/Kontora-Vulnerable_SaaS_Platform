@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClientFormDialog } from "@/components/clients/client-form-dialog";
+import { HashHighlightBanner } from "@/components/clients/hash-highlight-banner";
 import { ImportXmlButton } from "@/components/clients/import-xml-button";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -81,6 +82,8 @@ export default function ClientsPage() {
           </>
         }
       />
+
+      <HashHighlightBanner />
 
       <div className="relative max-w-sm">
         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
