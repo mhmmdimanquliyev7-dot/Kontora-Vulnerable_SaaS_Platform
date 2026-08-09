@@ -4,6 +4,7 @@ import { ArrowRight, Newspaper } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
+import { BlogSearch } from "@/components/blog/blog-search";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePublicPosts } from "@/hooks/use-blog";
@@ -40,6 +41,7 @@ export default function BlogIndexPage() {
       </section>
 
       <section className="mx-auto w-full max-w-5xl px-4 pb-20 sm:px-6">
+        <BlogSearch />
         {posts.isPending ? (
           <div className="grid gap-6 sm:grid-cols-2">
             {Array.from({ length: 4 }).map((_, i) => (

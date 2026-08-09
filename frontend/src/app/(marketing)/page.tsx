@@ -15,6 +15,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CtaBanner } from "@/components/marketing/cta-banner";
 import { FeatureCard } from "@/components/marketing/feature-card";
+import { ReferralBanner } from "@/components/marketing/referral-banner";
 
 const VALUE_PROPS = [
   {
@@ -153,9 +154,18 @@ function ProductPreview() {
   );
 }
 
-export default function MarketingHomePage() {
+export default async function MarketingHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}) {
+  // Chapter 15 — reflected XSS: the raw ?ref= value is rendered as HTML by
+  // <ReferralBanner> below, unescaped.
+  const { ref } = await searchParams;
+
   return (
     <>
+      <ReferralBanner value={ref} />
       <section className="relative overflow-hidden">
         <div
           aria-hidden="true"

@@ -303,12 +303,44 @@ model BlogPost {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  author  User?   @relation("BlogAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  author   User?         @relation("BlogAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  comments BlogComment[]
 
   @@index([companyId])
   @@index([status, publishedAt])
   @@map("blog_posts")
+}
+
+// Chapter 15 — XSS lab (INTENTIONAL, training only). Public visitor comments on
+// a blog post. The body is stored VERBATIM (never sanitized) and rendered as
+// raw HTML to every viewer of the post — the stored-XSS sink. Anyone (no auth)
+// may post a comment.
+model BlogComment {
+  id         String   @id @default(uuid())
+  postId     String
+  authorName String
+  website    String?
+  body       String
+  createdAt  DateTime @default(now())
+
+  post BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@map("blog_comments")
+}
+
+// Chapter 15 — XSS lab (INTENTIONAL, training only). Every public blog search
+// term is logged VERBATIM here with a timestamp. The owner-only "recent
+// searches" panel renders each term as raw HTML — the blind-XSS sink: a payload
+// typed into the public blog search lies dormant until an owner views the panel.
+model BlogSearchLog {
+  id        String   @id @default(uuid())
+  term      String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("blog_search_logs")
 }
 
 // A file attached to an invoice (receipt, supporting document). Stored on

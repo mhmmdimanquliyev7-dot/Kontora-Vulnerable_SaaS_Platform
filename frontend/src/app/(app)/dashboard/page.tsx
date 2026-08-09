@@ -4,16 +4,20 @@ import { AlertTriangle, DollarSign, FileText, ShieldAlert, Wallet } from "lucide
 
 import { InvoiceStatusChart } from "@/components/dashboard/invoice-status-chart";
 import { RecentActivityList } from "@/components/dashboard/recent-activity-list";
+import { RecentBlogSearches } from "@/components/dashboard/recent-blog-searches";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMe } from "@/hooks/use-auth";
 import { useDashboardSummary } from "@/hooks/use-dashboard";
 import { useInvoices } from "@/hooks/use-invoices";
 import { ApiError } from "@/lib/api/client";
 import { formatMoney } from "@/lib/format";
 
 export default function DashboardPage() {
+  const { data: me } = useMe();
+  const isOwner = me?.role === "OWNER";
   const summary = useDashboardSummary();
   const invoices = useInvoices();
 
@@ -86,6 +90,9 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Chapter 15 — blind-XSS sink panel; OWNER-only. */}
+      {isOwner && <RecentBlogSearches />}
     </div>
   );
 }

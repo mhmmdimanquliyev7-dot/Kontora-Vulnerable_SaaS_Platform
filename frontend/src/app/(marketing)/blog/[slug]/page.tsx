@@ -6,6 +6,7 @@ import Link from "next/link";
 import { use } from "react";
 
 import { Button } from "@/components/ui/button";
+import { CommentSection } from "@/components/blog/comment-section";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePublicPost } from "@/hooks/use-blog";
@@ -99,6 +100,8 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
           </p>
         </div>
       )}
+
+      <CommentSection slug={slug} />
     </article>
   );
 }

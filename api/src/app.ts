@@ -49,7 +49,24 @@ export function createApp(): Express {
     app.set("trust proxy", 1);
   }
 
-  app.use(helmet());
+  // Chapter 15 — XSS lab (INTENTIONAL, training only). The one shared CSP
+  // relaxation for this chapter: helmet's default policy sends
+  // `script-src 'self'; script-src-attr 'none'`, which blocks inline scripts
+  // and inline event handlers so injected XSS can't fire. Here we add
+  // 'unsafe-inline' to script-src and drop the script-src-attr restriction so
+  // reflected/stored/blind payloads execute. useDefaults keeps every other
+  // directive (object-src 'none', frame-ancestors 'self', etc.) intact — no
+  // other security header is weakened.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          "script-src": ["'self'", "'unsafe-inline'"],
+          "script-src-attr": null,
+        },
+      },
+    }),
+  );
   app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
   app.use(cookieParser());
   app.use(morgan(env.NODE_ENV === "development" ? "dev" : "combined"));
