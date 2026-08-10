@@ -1,12 +1,13 @@
 "use client";
 
-import { FileText, Plus } from "lucide-react";
+import { FileText, FileUp, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ImportXmlDialog } from "@/components/invoices/import-xml-dialog";
 import {
   Select,
   SelectContent,
@@ -49,6 +50,7 @@ export default function InvoicesPage() {
 
   const [status, setStatus] = useState<InvoiceStatus | "ALL">("ALL");
   const invoices = useInvoices(status === "ALL" ? {} : { status });
+  const [importOpen, setImportOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<InvoiceSearchResult[] | null>(null);
@@ -86,15 +88,22 @@ export default function InvoicesPage() {
         description="Every invoice you've billed."
         actions={
           canCreate && (
-            <Button asChild>
-              <Link href="/invoices/new">
-                <Plus className="size-4" />
-                New invoice
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setImportOpen(true)}>
+                <FileUp className="size-4" />
+                Import from XML
+              </Button>
+              <Button asChild>
+                <Link href="/invoices/new">
+                  <Plus className="size-4" />
+                  New invoice
+                </Link>
+              </Button>
+            </div>
           )
         }
       />
+      <ImportXmlDialog open={importOpen} onOpenChange={setImportOpen} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-1 gap-2">

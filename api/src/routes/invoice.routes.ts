@@ -3,8 +3,9 @@ import { Router } from "express";
 import * as attachmentController from "@/controllers/attachment.controller.js";
 import * as invoiceController from "@/controllers/invoice.controller.js";
 import * as invoiceCommentController from "@/controllers/invoiceComment.controller.js";
+import * as invoiceXmlImportController from "@/controllers/invoiceXmlImport.controller.js";
 import { requireRole } from "@/middleware/requireRole.js";
-import { uploadAttachment } from "@/middleware/upload.js";
+import { uploadAttachment, uploadXml } from "@/middleware/upload.js";
 import { validateBody } from "@/middleware/validate.js";
 import { Role } from "@kontora/db";
 import {
@@ -32,6 +33,11 @@ const clientCanPay = requireRole(Role.CLIENT_GUEST);
 
 invoiceRouter.get("/", invoiceController.list);
 invoiceRouter.get("/lookup", invoiceController.lookupByNumber);
+// Chapter 18 — XXE lab. Registered before "/:id" so "import-xml" is never
+// parsed as an invoice id. uploadXml is the same shared multer config the
+// (hardened) client XML importer uses; what's unhardened here is the parser
+// on the export-worker side (see exportWorker.client.ts's importInvoiceXml).
+invoiceRouter.post("/import-xml", canWrite, uploadXml, invoiceXmlImportController.preview);
 // Free-text invoice search (Chapter 14 SQLi lab — see the controller). Like
 // list/lookup it carries no requireRole: any authenticated role can search.
 invoiceRouter.get("/search", invoiceController.search);

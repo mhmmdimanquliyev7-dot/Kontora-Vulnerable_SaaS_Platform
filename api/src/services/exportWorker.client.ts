@@ -113,3 +113,53 @@ export async function importClientsXml(file: {
   }
   return parseJsonResult<XmlImportResult>(result);
 }
+
+// Chapter 18 — XXE lab (INTENTIONAL, training only). Preview-only result for
+// "Import invoice from XML": either `invoice` is populated (parse
+// succeeded) or `parseError` is (parse failed) — the raw parser exception
+// message, not a generic one, so error-based XXE exfil is visible.
+export interface ParsedInvoicePreview {
+  number: string | null;
+  clientName: string | null;
+  issueDate: string | null;
+  dueDate: string | null;
+  currency: string | null;
+  total: string | null;
+  notes: string | null;
+}
+
+export interface XmlInvoiceImportResult {
+  invoice: ParsedInvoicePreview | null;
+  parseError: string | null;
+}
+
+// Forwards an uploaded/pasted invoice XML file to export-worker's
+// DELIBERATELY UNHARDENED parser (see XmlInvoiceImportService.java — no
+// disallow-doctype-decl, external entities left resolvable, DTD loading and
+// network access left enabled) — the opposite of importClientsXml above.
+// Preview-only: nothing is written to the database here or in export-worker;
+// the API tells the caller as much ("preview").
+export async function importInvoiceXml(file: {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+}): Promise<XmlInvoiceImportResult> {
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([new Uint8Array(file.buffer)], { type: file.mimetype || "application/xml" }),
+    file.originalname,
+  );
+
+  const result = await callInternalService(env.EXPORT_WORKER_URL, {
+    method: "POST",
+    path: "/import/invoice-xml",
+    body: form,
+    isFormData: true,
+  });
+
+  if (result.status !== 200) {
+    throw new UpstreamServiceError("export-worker could not process the uploaded file.");
+  }
+  return parseJsonResult<XmlInvoiceImportResult>(result);
+}
