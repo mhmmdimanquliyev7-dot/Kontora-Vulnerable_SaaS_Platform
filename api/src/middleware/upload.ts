@@ -38,6 +38,17 @@ export const uploadImage = multer({
   },
 }).single("image");
 
+// Chapter 16 — unrestricted file upload -> RCE lab (INTENTIONAL, training only).
+// Blog cover upload. Deliberately NO type filter here: the file is accepted raw
+// so the handler (blogCover.service.ts) can apply all four (individually
+// bypassable) checks in order, each with its own message, and preserve the
+// original bytes + multi-extension filename. memoryStorage keeps the buffer for
+// the magic-number check; the service writes it out under the original name.
+export const uploadCoverRaw = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE_BYTES, files: 1 },
+}).single("image");
+
 // Invoice attachments (receipts/supporting documents). Unlike images these
 // are NOT re-encoded — we store the original bytes — so the type filter is a
 // real gate, not just a first pass. It's still only advisory (a client can lie

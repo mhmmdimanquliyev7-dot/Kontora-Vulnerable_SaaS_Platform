@@ -2,10 +2,11 @@ import { Router } from "express";
 
 import * as blogController from "@/controllers/blog.controller.js";
 import * as blogCommentController from "@/controllers/blogComment.controller.js";
+import * as blogCoverController from "@/controllers/blogCover.controller.js";
 import * as blogSearchController from "@/controllers/blogSearch.controller.js";
 import { requireAuth } from "@/middleware/requireAuth.js";
 import { requireRole } from "@/middleware/requireRole.js";
-import { uploadImage } from "@/middleware/upload.js";
+import { uploadCoverRaw } from "@/middleware/upload.js";
 import { validateBody } from "@/middleware/validate.js";
 import { Role } from "@kontora/db";
 import { createBlogPostSchema, updateBlogPostSchema } from "@/validation/blog.schemas.js";
@@ -37,7 +38,15 @@ blogRouter.patch(
   blogController.update,
 );
 blogRouter.delete("/admin/posts/:id", ...canManage, blogController.remove);
-blogRouter.post("/admin/posts/:id/cover", ...canManage, uploadImage, blogController.uploadCover);
+// Chapter 16 — unrestricted file upload -> RCE lab. Cover upload now runs the
+// four bypassable filters and stores the original file verbatim (see
+// blogCover.service.ts) instead of the sharp re-encode.
+blogRouter.post(
+  "/admin/posts/:id/cover",
+  ...canManage,
+  uploadCoverRaw,
+  blogCoverController.uploadCover,
+);
 
 // Chapter 15 — XSS lab. OWNER-only "recent searches" panel data (blind-XSS
 // sink). Registered in the admin block so "/admin/..." is never parsed as a

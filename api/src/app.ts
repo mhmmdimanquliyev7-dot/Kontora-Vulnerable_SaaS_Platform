@@ -7,7 +7,7 @@ import path from "node:path";
 
 import { env } from "@/config/env.js";
 import { yoga } from "@/gql/server.js";
-import { UPLOADS_ROOT } from "@/lib/uploads.js";
+import { BLOG_MEDIA_DIR, UPLOADS_ROOT } from "@/lib/uploads.js";
 import { errorHandler } from "@/middleware/errorHandler.js";
 import { notFoundHandler } from "@/middleware/notFound.js";
 import { requireAuth } from "@/middleware/requireAuth.js";
@@ -97,6 +97,18 @@ export function createApp(): Express {
   app.use(
     "/uploads",
     express.static(UPLOADS_ROOT, {
+      setHeaders: (res) => res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"),
+    }),
+  );
+
+  // Chapter 16 — blog cover media (shared blog_media volume). In production the
+  // Caddy /media/blog route sends these requests to the report-service
+  // (Apache/mod_php), which is what makes an uploaded .php polyglot execute;
+  // this static mount only exists so cover images still display in local dev
+  // (no Caddy), and never runs PHP. Kept separate from the /uploads routing.
+  app.use(
+    "/media/blog",
+    express.static(BLOG_MEDIA_DIR, {
       setHeaders: (res) => res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"),
     }),
   );

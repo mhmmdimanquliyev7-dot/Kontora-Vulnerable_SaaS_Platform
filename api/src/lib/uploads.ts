@@ -17,3 +17,12 @@ export const BLOG_IMAGES_DIR = path.join(UPLOADS_ROOT, "blog");
 // volume, same as uploads is by `api_uploads`.
 export const STORAGE_ROOT = path.resolve(process.cwd(), "storage");
 export const ATTACHMENTS_DIR = path.join(STORAGE_ROOT, "attachments");
+
+// Chapter 16 — unrestricted file upload -> RCE lab (INTENTIONAL, training only).
+// Blog cover images are written here under their ORIGINAL, unsanitized filename
+// (no sharp re-encode, no server-generated name). This directory is a SHARED
+// Docker volume (blog_media): the api writes to it, and the report-service
+// (Apache/mod_php) mounts + serves it at /media/blog with a .php handler — so an
+// uploaded polyglot named e.g. shell.php.png executes as PHP. Deliberately
+// separate from UPLOADS_ROOT/STORAGE_ROOT and the existing /uploads routing.
+export const BLOG_MEDIA_DIR = path.resolve(process.cwd(), "media", "blog");

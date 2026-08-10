@@ -34,6 +34,14 @@ trykontora.com {
 			reverse_proxy api:4000
 		}
 
+		# Chapter 16 — blog cover media served by the report-service
+		# (Apache/mod_php) from the shared blog_media volume. A NEW route; the
+		# /api and /uploads routes above are untouched. This is what makes an
+		# uploaded .php polyglot under /media/blog/ execute as PHP.
+		handle /media/blog/* {
+			reverse_proxy report-service:80
+		}
+
 		# Everything else: the Next.js frontend.
 		handle {
 			reverse_proxy frontend:3000

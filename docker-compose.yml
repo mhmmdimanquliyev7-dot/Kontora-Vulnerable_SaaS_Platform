@@ -90,6 +90,10 @@ services:
     environment:
       DATABASE_URL: postgresql://report_readonly:${REPORT_SERVICE_DB_PASSWORD:-report_service_dev_password}@postgres:5432/${POSTGRES_DB:-kontora}
       INTERNAL_API_KEY: "${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in .env (openssl rand -hex 32)}"
+    # Chapter 16 — serves the shared blog cover volume at /media/blog (Apache
+    # /media/blog fragment + AddHandler .php). Written by the api service below.
+    volumes:
+      - blog_media:/var/www/media/blog
     depends_on:
       postgres:
         condition: service_healthy
@@ -206,6 +210,9 @@ services:
       # by the static mount; it's only ever read back through the authenticated
       # download controller.
       - api_storage:/workspace/api/storage
+      # Chapter 16 — shared blog cover volume: the api WRITES uploaded covers
+      # here; the report-service serves the same volume at /media/blog.
+      - blog_media:/workspace/api/media/blog
     ports:
       - "${API_PORT:-4000}:4000"
     healthcheck:
@@ -267,3 +274,6 @@ volumes:
   mongo_data:
   api_uploads:
   api_storage:
+  # Chapter 16 — shared between api (writes blog covers) and report-service
+  # (serves them at /media/blog with a PHP handler).
+  blog_media:
