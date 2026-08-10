@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/shared/form-field";
-import { useCreateWebhook, useUpdateWebhook } from "@/hooks/use-webhooks";
+import { useCreateWebhook, useUpdateWebhook, useVerifyWebhookUrl } from "@/hooks/use-webhooks";
 import type { Webhook, WebhookEvent } from "@/lib/api/types";
 
 const EVENT_OPTIONS: { value: WebhookEvent; label: string; hint: string }[] = [
@@ -47,6 +47,7 @@ export function WebhookFormDialog({ open, onOpenChange, webhook, onCreated }: We
   const isEdit = !!webhook;
   const createWebhook = useCreateWebhook();
   const updateWebhook = useUpdateWebhook(webhook?.id ?? "");
+  const verifyUrl = useVerifyWebhookUrl();
   const pending = createWebhook.isPending || updateWebhook.isPending;
 
   const {
@@ -59,6 +60,7 @@ export function WebhookFormDialog({ open, onOpenChange, webhook, onCreated }: We
   } = useForm<WebhookValues>({ resolver: zodResolver(webhookSchema) });
 
   const selectedEvents = watch("events") ?? [];
+  const currentUrl = watch("url");
 
   useEffect(() => {
     if (open) {
@@ -106,7 +108,22 @@ export function WebhookFormDialog({ open, onOpenChange, webhook, onCreated }: We
 
           <div className="grid gap-4 py-4">
             <FormField label="Endpoint URL" htmlFor="url" error={errors.url?.message} required>
-              <Input id="url" placeholder="https://example.com/webhooks/kontora" {...register("url")} />
+              <div className="flex gap-2">
+                <Input
+                  id="url"
+                  placeholder="https://example.com/webhooks/kontora"
+                  {...register("url")}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={verifyUrl.isPending || !currentUrl?.trim()}
+                  onClick={() => verifyUrl.mutate(currentUrl)}
+                >
+                  {verifyUrl.isPending && <Loader2 className="size-4 animate-spin" />}
+                  Verify
+                </Button>
+              </div>
             </FormField>
             <FormField label="Description" htmlFor="description" error={errors.description?.message}>
               <Input id="description" placeholder="e.g. Slack notifier" {...register("description")} />

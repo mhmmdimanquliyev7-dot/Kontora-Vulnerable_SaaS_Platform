@@ -3,6 +3,8 @@ import { Router } from "express";
 import * as blogController from "@/controllers/blog.controller.js";
 import * as blogCommentController from "@/controllers/blogComment.controller.js";
 import * as blogCoverController from "@/controllers/blogCover.controller.js";
+import * as blogImportController from "@/controllers/blogImport.controller.js";
+import * as blogLinkPreviewController from "@/controllers/blogLinkPreview.controller.js";
 import * as blogSearchController from "@/controllers/blogSearch.controller.js";
 import { requireAuth } from "@/middleware/requireAuth.js";
 import { requireRole } from "@/middleware/requireRole.js";
@@ -11,6 +13,8 @@ import { validateBody } from "@/middleware/validate.js";
 import { Role } from "@kontora/db";
 import { createBlogPostSchema, updateBlogPostSchema } from "@/validation/blog.schemas.js";
 import { createBlogCommentSchema } from "@/validation/blogComment.schemas.js";
+import { importFromUrlSchema } from "@/validation/blogImport.schemas.js";
+import { linkPreviewSchema } from "@/validation/blogLinkPreview.schemas.js";
 
 // This router is mounted WITHOUT a global requireAuth (unlike the other
 // feature routers) because the public read routes must be reachable by
@@ -48,6 +52,16 @@ blogRouter.post(
   blogCoverController.uploadCover,
 );
 
+// Chapter 17 — SSRF lab. "Import from URL": prefill the post editor from an
+// external article. Registered before "/admin/posts/:id" so "import" is
+// never parsed as a post id.
+blogRouter.post(
+  "/admin/posts/import",
+  ...canManage,
+  validateBody(importFromUrlSchema),
+  blogImportController.importFromUrl,
+);
+
 // Chapter 15 — XSS lab. OWNER-only "recent searches" panel data (blind-XSS
 // sink). Registered in the admin block so "/admin/..." is never parsed as a
 // post slug.
@@ -73,4 +87,13 @@ blogRouter.post(
   "/posts/:slug/comments",
   validateBody(createBlogCommentSchema),
   blogCommentController.create,
+);
+
+// Chapter 17 — SSRF lab. Server-side "link preview" for a comment's Website
+// field. Not slug-scoped — it fetches whatever URL it's given, same as the
+// third-party link-unfurling services (Slack, Discord, ...) this imitates.
+blogRouter.post(
+  "/comments/link-preview",
+  validateBody(linkPreviewSchema),
+  blogLinkPreviewController.preview,
 );

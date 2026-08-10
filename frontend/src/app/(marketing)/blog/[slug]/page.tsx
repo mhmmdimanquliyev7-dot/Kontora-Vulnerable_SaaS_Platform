@@ -7,6 +7,7 @@ import { use } from "react";
 
 import { Button } from "@/components/ui/button";
 import { CommentSection } from "@/components/blog/comment-section";
+import { LinkPreviewPanel } from "@/components/blog/link-preview-panel";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePublicPost } from "@/hooks/use-blog";
@@ -102,6 +103,7 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
       )}
 
       <CommentSection slug={slug} />
+      <LinkPreviewPanel slug={slug} />
     </article>
   );
 }

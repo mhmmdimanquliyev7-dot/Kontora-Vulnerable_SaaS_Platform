@@ -248,3 +248,34 @@ export async function testWebhook(companyId: string, webhookId: string) {
     },
   });
 }
+
+const VERIFY_TIMEOUT_MS = 10_000;
+
+// Chapter 17 — SSRF lab (INTENTIONAL, training only). Blind SSRF.
+//
+// "Verify URL" — lets someone check a URL is reachable BEFORE saving it as a
+// webhook (no webhook needs to exist yet, unlike `test` above which requires
+// a saved, already-validated webhook id). Unlike every other path in this
+// file, this one never calls assertPublicHttpsUrl — there is no host/IP
+// allowlist at all here — and the caller only ever learns true/false, never
+// a status code, header, or byte of the response body. An internal target
+// can only be confirmed out-of-band (e.g. a request landing on an attacker-
+// controlled Collaborator host) or by observing response timing.
+export async function verifyWebhookUrl(rawUrl: string): Promise<{ verified: boolean }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(rawUrl, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: { "User-Agent": "Kontora-Webhooks/1.0" },
+    });
+    return { verified: res.ok };
+  } catch {
+    return { verified: false };
+  } finally {
+    clearTimeout(timeout);
+  }
+}

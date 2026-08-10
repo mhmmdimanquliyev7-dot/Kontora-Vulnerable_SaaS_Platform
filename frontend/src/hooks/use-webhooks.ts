@@ -56,6 +56,22 @@ export function useDeleteWebhook() {
   });
 }
 
+// Chapter 17 — SSRF lab (INTENTIONAL, training only).
+export function useVerifyWebhookUrl() {
+  return useMutation({
+    mutationFn: webhooksApi.verifyWebhookUrl,
+    onSuccess: (result) => {
+      if (result.verified) {
+        toast.success("URL is reachable");
+      } else {
+        toast.error("Couldn't reach that URL");
+      }
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : "Something went wrong"),
+  });
+}
+
 export function useTestWebhook() {
   const queryClient = useQueryClient();
   return useMutation({

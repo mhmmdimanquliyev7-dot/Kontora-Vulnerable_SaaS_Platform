@@ -44,3 +44,11 @@ export async function test(req: Request, res: Response): Promise<void> {
   const result = await webhookService.testWebhook(req.auth!.companyId, requireParam(req, "id"));
   res.status(200).json({ result });
 }
+
+// Chapter 17 — SSRF lab (INTENTIONAL, training only). Blind variant — see
+// webhookService.verifyWebhookUrl for what makes this one different from
+// `test` above.
+export async function verifyUrl(req: Request, res: Response): Promise<void> {
+  const result = await webhookService.verifyWebhookUrl(req.body.url);
+  res.status(200).json({ result });
+}

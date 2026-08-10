@@ -1,11 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, ImagePlus, Loader2 } from "lucide-react";
+import { ArrowLeft, Import, ImagePlus, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -22,6 +22,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/shared/form-field";
 import { useCreatePost, useUpdatePost, useUploadPostCover } from "@/hooks/use-blog";
+import { useImportPostFromUrl } from "@/hooks/use-blog-import";
 import { apiUrl } from "@/lib/api/client";
 import type { BlogPost, BlogPostStatus } from "@/lib/api/types";
 
@@ -44,7 +45,9 @@ export function PostEditor({ post }: { post?: BlogPost }) {
   const createPost = useCreatePost();
   const updatePost = useUpdatePost(post?.id ?? "");
   const uploadCover = useUploadPostCover(post?.id ?? "");
+  const importFromUrl = useImportPostFromUrl();
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const [importUrl, setImportUrl] = useState("");
 
   const {
     register,
@@ -63,6 +66,14 @@ export function PostEditor({ post }: { post?: BlogPost }) {
   });
 
   const status = watch("status");
+
+  async function handleImport() {
+    if (!importUrl.trim()) return;
+    const imported = await importFromUrl.mutateAsync(importUrl.trim());
+    if (imported.title) setValue("title", imported.title, { shouldValidate: true });
+    setValue("excerpt", imported.excerpt, { shouldValidate: true });
+    setValue("body", imported.body, { shouldValidate: true });
+  }
 
   async function onSubmit(values: PostValues) {
     const input = {
@@ -107,6 +118,33 @@ export function PostEditor({ post }: { post?: BlogPost }) {
               <CardTitle className="text-base">{isEdit ? "Edit post" : "New post"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <FormField
+                label="Import from URL"
+                htmlFor="import-url"
+                hint="Fetch an external article server-side and prefill the fields below."
+              >
+                <div className="flex gap-2">
+                  <Input
+                    id="import-url"
+                    placeholder="https://example.com/some-article"
+                    value={importUrl}
+                    onChange={(e) => setImportUrl(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={importFromUrl.isPending || !importUrl.trim()}
+                    onClick={handleImport}
+                  >
+                    {importFromUrl.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Import className="size-4" />
+                    )}
+                    Import
+                  </Button>
+                </div>
+              </FormField>
               <FormField label="Title" htmlFor="title" error={errors.title?.message} required>
                 <Input id="title" {...register("title")} />
               </FormField>

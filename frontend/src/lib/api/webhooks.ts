@@ -53,3 +53,14 @@ export async function getWebhookDeliveries(id: string): Promise<WebhookDelivery[
   const res = await apiFetch<{ deliveries: WebhookDelivery[] }>(`/api/webhooks/${id}/deliveries`);
   return res.deliveries;
 }
+
+// Chapter 17 — SSRF lab (INTENTIONAL, training only). See
+// api/src/services/webhook.service.ts's verifyWebhookUrl — checks a URL is
+// reachable before it's even saved, and returns only a boolean.
+export async function verifyWebhookUrl(url: string): Promise<{ verified: boolean }> {
+  const res = await apiFetch<{ result: { verified: boolean } }>("/api/webhooks/verify-url", {
+    method: "POST",
+    body: JSON.stringify({ url }),
+  });
+  return res.result;
+}

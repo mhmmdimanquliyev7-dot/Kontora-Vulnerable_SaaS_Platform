@@ -25,3 +25,11 @@ export const updateWebhookSchema = z.object({
   events: z.array(z.enum(WEBHOOK_EVENTS)).min(1, "Select at least one event").optional(),
   isActive: z.boolean().optional(),
 });
+
+// Chapter 17 — SSRF lab (INTENTIONAL, training only). Deliberately NOT
+// webhookUrlSchema — no HTTPS requirement, just "some non-empty string" — to
+// match webhookService.verifyWebhookUrl, which applies no host/IP validation
+// either.
+export const verifyWebhookUrlSchema = z.object({
+  url: z.string().trim().min(1, "A URL is required").max(2048),
+});
